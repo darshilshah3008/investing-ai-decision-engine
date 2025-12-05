@@ -1,22 +1,3 @@
-Yes — the structure looks **broken**, the indentation collapsed, code fences opened but not closed, and the folder tree is unreadable.
-
-This happens because:
-
-* You used inline text instead of a fenced code block
-* Markdown lists and folder trees must be properly formatted
-* Some sections are missing closing ```
-
-Let me fix EVERYTHING and give you a **clean, beautifully formatted, professional README.md**, ready to paste into GitHub.
-
----
-
-# ✅ **Here is the corrected, polished, final README.md**
-
-**COPY & PASTE EXACTLY AS IS — this is perfect Markdown formatting.**
-
----
-
-```markdown
 # 📘 Investing AI Engine
 
 An AI-powered equity analysis system that combines SEC financial data, revenue trends, valuation metrics, analyst ratings, and rule-based intelligence to generate automated **Buy / Hold / Sell** recommendations for your investment watchlist.
