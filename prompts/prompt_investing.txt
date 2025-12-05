@@ -1,0 +1,84 @@
+PROMPT START
+I want you to analyze the stocks that I currently hold using the data I have provided in the uploaded documents:
+•	watchlist_snapshot.csv 
+•	final_screened_with_research.csv
+•	sec_revenue_screened_with_pe.csv
+•	sec_revenue_screened.csv
+•	sec_all_tickers.csv
+Your task:
+________________________________________
+1. CLARITY — TASK
+Explain in simple terms:
+•	Which stocks I currently own (identify tickers from documents).
+•	For each stock, whether the 1–5 year outlook suggests Buy, Hold, or Sell.
+•	Use only data from my documents + market logic (no hallucinations).
+•	Make assumptions ONLY if they are required, and state them.
+________________________________________
+2. CONTEXT — BACKGROUND
+Use this context:
+•	Purpose: I want actionable long-term investment guidance
+•	Audience: Non-expert investor
+•	Prior Knowledge: Basic understanding of stocks
+•	Use Case: Building a 1–5 year portfolio strategy
+________________________________________
+3. FORMAT — STRUCTURE
+Present your analysis using:
+•	Bullet points
+•	Tables
+•	Short summaries per stock
+•	ASCII diagrams (if it helps explain valuation or trend)
+For each stock include:
+A. Snapshot
+•	Ticker
+•	Sector
+•	Revenue trend
+•	PE information
+•	Growth flags (positive/negative)
+•	Any red/yellow/green signals
+B. Rating
+Choose one based on evidence:
+•	BUY → undervalued, strong growth drivers
+•	HOLD → fairly valued, steady
+•	SELL → overvalued, declining fundamentals, red flags
+C. 1–5 YEAR OUTLOOK
+Use bullet points:
+•	Catalysts
+•	Risks
+•	Expected trend (↑, →, ↓)
+________________________________________
+4. EXAMPLES — GOOD & BAD
+Follow the GOOD format:
+•	Clear explanation
+•	Visual table
+•	Simple diagrams
+•	Real-world analogy if useful
+Avoid BAD format:
+•	Large paragraphs
+•	Vague statements
+•	Unsupported claims
+•	Missing reasoning
+________________________________________
+5. TONE / VOICE
+•	Tone: clear, helpful, direct
+•	Voice: analytical but simple, like a finance tutor explaining step-by-step
+________________________________________
+6. CHAIN OF THOUGHT
+Explain reasoning in a teaching style, but DO NOT reveal internal chain-of-thought.
+Provide only structured, external explanation.
+________________________________________
+7. CONSTRAINTS — RULES
+•	Max 1–2 compact sections per stock
+•	Include:
+o	definitions (e.g., PE, revenue growth)
+o	short examples
+•	Avoid:
+o	fabricated numbers
+o	unnecessary theory
+Priority: Clarity → Accuracy → Format → Tone
+________________________________________
+8. FINAL OUTPUT
+At the end provide:
+•	A Buy/Hold/Sell summary table
+•	A 1–5 year portfolio strategy
+•	Any missing data you need from me
+

@@ -1,0 +1,17 @@
+ticker,name,sector,industry,price,market_cap,trailing_PE,forward_PE,peg_ratio,beta
+GOOGL,Alphabet Inc.,Communication Services,Internet Content & Information,320.53,3882298376192,31.641659,35.773438,,1.07
+TSM,Taiwan Semiconductor Manufacturing Company Limited,Technology,Semiconductors,295.65,1533390094336,30.573938,36.590347,,1.267
+MSFT,Microsoft Corporation,Technology,Software - Infrastructure,480.41,3570967511040,34.217236,32.13445,,1.07
+NVDA,NVIDIA Corporation,Technology,Semiconductors,181.96,4430180646912,45.151363,44.16505,,2.284
+BABA,Alibaba Group Holding Limited,Consumer Cyclical,Internet Retail,158.41,377965674496,21.406757,16.049646,,0.323
+JNJ,Johnson & Johnson,Healthcare,Drug Manufacturers - General,201.98,486629408768,19.514975,19.054716,,0.349
+SONY,Sony Group Corporation,Technology,Consumer Electronics,28.035,168758575104,21.73256,23.558823,,0.84
+WMT,Walmart Inc.,Consumer Defensive,Discount Stores,115.5,920864292864,40.384617,42.463234,,0.641
+AMZN,"Amazon.com, Inc.",Consumer Cyclical,Internet Retail,229.53,2453725249536,32.41949,37.32195,,1.372
+JD,"JD.com, Inc.",Consumer Cyclical,Internet Retail,30.025,44299067392,9.975083,7.2524157,,0.421
+SERV,Serve Robotics Inc.,Industrials,Specialty Industrial Machinery,13.41,998823424,,-21.629032,,
+AMD,"Advanced Micro Devices, Inc.",Technology,Semiconductors,218.6688,356001906688,115.08884,42.876236,,1.927
+EH,EHang Holdings Limited,Industrials,Aerospace & Defense,14.37,1034422400,,62.47826,,0.562
+NICE,NICE Ltd.,Technology,Software - Application,106.82,6595248640,12.138636,8.777321,,0.34
+QBTS,D-Wave Quantum Inc.,Technology,Computer Hardware,27.115,9680646144,,-104.28847,,1.564
+GE,GE Aerospace,Industrials,Aerospace & Defense,282.9,299998281728,37.871487,53.988552,,1.405
