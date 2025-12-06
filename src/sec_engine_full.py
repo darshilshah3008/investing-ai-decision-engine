@@ -4,6 +4,10 @@ import requests
 import pandas as pd
 import yfinance as yf
 
+# Import utilities (make sure src/utils.py exists)
+from utils import log, output_path
+
+
 # ==========================
 #   CONFIG
 # ==========================
@@ -11,20 +15,13 @@ SEC_HEADERS = {
     "User-Agent": "darshil.shah@cnhind.com",  # SEC requires a real email
     "Accept-Encoding": "gzip, deflate",
 }
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
+
 WATCHLIST = [
     "GOOGL", "TSM", "MSFT", "NVDA", "BABA", "JNJ", "SONY", "WMT", "AMZN",
     "JD", "SERV", "AMD", "EH", "NICE", "QBTS", "GE"
 ]
-MAX_TICKERS = None  # None = all SEC tickers
+MAX_TICKERS = 100 #None  # None = all SEC tickers
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# ==========================
-#   LOGGING HELPER
-# ==========================
-def log(section, message):
-    print(f"[{section}] {message}")
 
 # ==========================
 #   1. DOWNLOAD TICKERS
@@ -52,10 +49,11 @@ def download_all_tickers():
         log("SEC", f"Limiting to first {MAX_TICKERS} tickers for testing.")
         df = df.head(MAX_TICKERS)
 
-    out_path = os.path.join(OUTPUT_DIR, "sec_all_tickers.csv")
+    out_path = output_path("sec_all_tickers.csv")
     df.to_csv(out_path, index=False)
     log("SEC", f"Saved SEC ticker list → {len(df)} tickers to {out_path}")
     return df
+
 
 # ==========================
 #   2. DOWNLOAD QUARTERLY REVENUE
@@ -101,6 +99,7 @@ def fetch_quarterly_revenue(cik):
 
     except Exception:
         return None
+
 
 # ==========================
 #   3. REVENUE SCREENER
@@ -148,10 +147,11 @@ def screen_revenue_growth(df_tickers):
             })
 
     df_res = pd.DataFrame(results)
-    out_path = os.path.join(OUTPUT_DIR, "sec_revenue_screened.csv")
+    out_path = output_path("sec_revenue_screened.csv")
     df_res.to_csv(out_path, index=False)
     log("SCREEN", f"Revenue screening complete → {len(df_res)} companies passed ({out_path})")
     return df_res
+
 
 # ==========================
 #   4. MARKET DATA (YFINANCE)
@@ -164,6 +164,7 @@ def _get_yf_info_safe(ticker):
         return price, info.get("marketCap"), info.get("trailingPE")
     except Exception:
         return None, None, None
+
 
 def add_market_data(df_screened):
     if df_screened.empty:
@@ -186,10 +187,11 @@ def add_market_data(df_screened):
         time.sleep(0.10)  # be nice to Yahoo
 
     df = pd.DataFrame(rows)
-    out_path = os.path.join(OUTPUT_DIR, "sec_revenue_screened_with_pe.csv")
+    out_path = output_path("sec_revenue_screened_with_pe.csv")
     df.to_csv(out_path, index=False)
     log("YF", f"Market data added and saved to {out_path}")
     return df
+
 
 # ==========================
 #   5. MERGE ANALYST RESEARCH (OPTIONAL)
@@ -201,7 +203,7 @@ def merge_external_research(df):
       ticker,zacks_rating_num,bloomberg_rating_num,consensus_rating_num,consensus_pt,...
     """
     log("ANALYST", "Looking for external_research.csv to merge...")
-    path = os.path.join(OUTPUT_DIR, "external_research.csv")
+    path = output_path("external_research.csv")
 
     if os.path.exists(path):
         df_ext = pd.read_csv(path)
@@ -212,10 +214,11 @@ def merge_external_research(df):
         df_final = df
         log("ANALYST", "No external_research.csv found → skipping analyst merge.")
 
-    out_path = os.path.join(OUTPUT_DIR, "final_screened_with_research.csv")
+    out_path = output_path("final_screened_with_research.csv")
     df_final.to_csv(out_path, index=False)
     log("ANALYST", f"Saved final_screened_with_research.csv → {out_path}")
     return df_final
+
 
 # ==========================
 #   6. WATCHLIST SNAPSHOT
@@ -246,10 +249,11 @@ def fetch_watchlist_snapshot(tickers):
         time.sleep(0.10)
 
     df = pd.DataFrame(rows)
-    out_path = os.path.join(OUTPUT_DIR, "watchlist_snapshot.csv")
+    out_path = output_path("watchlist_snapshot.csv")
     df.to_csv(out_path, index=False)
     log("WATCHLIST", f"Watchlist snapshot saved to {out_path}")
     return df
+
 
 # ==========================
 #   7. ANALYST BIAS (OPTIONAL)
@@ -273,6 +277,7 @@ def compute_analyst_bias(row):
     if not scores:
         return 0.0
     return float(sum(scores) / len(scores))
+
 
 # ==========================
 #   8. BUY / HOLD / SELL CLASSIFIER
@@ -398,10 +403,11 @@ def classify_watchlist_signals(watchlist_df, final_screened_df):
                 or c.startswith(("zacks_", "bloomberg_", "jpm_", "ms_", "consensus_"))]
 
     out_df = wl[out_cols]
-    out_path = os.path.join(OUTPUT_DIR, "watchlist_signals.csv")
+    out_path = output_path("watchlist_signals.csv")
     out_df.to_csv(out_path, index=False)
     log("CLASSIFIER", f"Saved Buy/Hold/Sell signals to {out_path}")
     return out_df
+
 
 # ==========================
 #   MAIN ENGINE

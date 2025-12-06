@@ -1,17 +1,17 @@
 ticker,name,sector,industry,price,market_cap,trailing_PE,forward_PE,peg_ratio,beta
-GOOGL,Alphabet Inc.,Communication Services,Internet Content & Information,320.53,3882298376192,31.641659,35.773438,,1.07
-TSM,Taiwan Semiconductor Manufacturing Company Limited,Technology,Semiconductors,295.65,1533390094336,30.573938,36.590347,,1.267
-MSFT,Microsoft Corporation,Technology,Software - Infrastructure,480.41,3570967511040,34.217236,32.13445,,1.07
-NVDA,NVIDIA Corporation,Technology,Semiconductors,181.96,4430180646912,45.151363,44.16505,,2.284
-BABA,Alibaba Group Holding Limited,Consumer Cyclical,Internet Retail,158.41,377965674496,21.406757,16.049646,,0.323
-JNJ,Johnson & Johnson,Healthcare,Drug Manufacturers - General,201.98,486629408768,19.514975,19.054716,,0.349
-SONY,Sony Group Corporation,Technology,Consumer Electronics,28.035,168758575104,21.73256,23.558823,,0.84
-WMT,Walmart Inc.,Consumer Defensive,Discount Stores,115.5,920864292864,40.384617,42.463234,,0.641
+GOOGL,Alphabet Inc.,Communication Services,Internet Content & Information,321.27,3891261341696,31.714706,35.856026,,1.07
+TSM,Taiwan Semiconductor Manufacturing Company Limited,Technology,Semiconductors,294.72,1528566644736,30.477766,36.475246,,1.267
+MSFT,Microsoft Corporation,Technology,Software - Infrastructure,483.16,3591408713728,34.413105,32.318394,,1.07
+NVDA,NVIDIA Corporation,Technology,Semiconductors,182.41,4441136693248,45.263027,44.274273,,2.284
+BABA,Alibaba Group Holding Limited,Consumer Cyclical,Internet Retail,158.32,377750945792,21.394596,16.040527,,0.323
+JNJ,Johnson & Johnson,Healthcare,Drug Manufacturers - General,201.93,486508953600,19.510143,19.05,,0.349
+SONY,Sony Group Corporation,Technology,Consumer Electronics,28.03,168728477696,21.728683,23.55462,,0.84
+WMT,Walmart Inc.,Consumer Defensive,Discount Stores,115.11,917754937344,40.248253,42.31985,,0.641
 AMZN,"Amazon.com, Inc.",Consumer Cyclical,Internet Retail,229.53,2453725249536,32.41949,37.32195,,1.372
-JD,"JD.com, Inc.",Consumer Cyclical,Internet Retail,30.025,44299067392,9.975083,7.2524157,,0.421
-SERV,Serve Robotics Inc.,Industrials,Specialty Industrial Machinery,13.41,998823424,,-21.629032,,
-AMD,"Advanced Micro Devices, Inc.",Technology,Semiconductors,218.6688,356001906688,115.08884,42.876236,,1.927
+JD,"JD.com, Inc.",Consumer Cyclical,Internet Retail,29.9,44114640896,9.933555,7.2222223,,0.421
+SERV,Serve Robotics Inc.,Industrials,Specialty Industrial Machinery,13.42,999568320,,-21.64516,,
+AMD,"Advanced Micro Devices, Inc.",Technology,Semiconductors,217.97,354864234496,114.721054,42.739216,,1.927
 EH,EHang Holdings Limited,Industrials,Aerospace & Defense,14.37,1034422400,,62.47826,,0.562
-NICE,NICE Ltd.,Technology,Software - Application,106.82,6595248640,12.138636,8.777321,,0.34
-QBTS,D-Wave Quantum Inc.,Technology,Computer Hardware,27.115,9680646144,,-104.28847,,1.564
-GE,GE Aerospace,Industrials,Aerospace & Defense,282.9,299998281728,37.871487,53.988552,,1.405
+NICE,NICE Ltd.,Technology,Software - Application,106.2,6556968960,12.068181,8.726376,,0.34
+QBTS,D-Wave Quantum Inc.,Technology,Computer Hardware,27.0,9639588864,,-103.84616,,1.564
+GE,GE Aerospace,Industrials,Aerospace & Defense,283.94,301101154304,38.01071,54.187027,,1.405
