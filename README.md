@@ -1,86 +1,138 @@
 # 📘 Investing AI Engine
 
-An AI-powered equity analysis system that combines SEC financial data, revenue trends, valuation metrics, analyst ratings, and rule-based intelligence to generate automated **Buy / Hold / Sell** recommendations for your investment watchlist.
+An automated, rule-based equity research engine that analyzes **SEC financial filings** and **market valuation data** to generate **Buy / Hold / Sell** signals for a predefined stock watchlist.
 
-This project serves as a personal investing assistant and a modular quantitative research tool.
+The goal of this project is to help investors **systematically evaluate companies** using transparent, explainable logic — not black-box machine learning.
 
 ---
 
-## 🌟 Features
+## 🚀 How This Engine Is Used
 
-### 📊 1. SEC Revenue Trend Screening
-Automatically downloads all SEC-listed companies and analyzes:
-- Quarter-over-quarter revenue growth  
-- Year-over-year revenue improvement  
-- XBRL-based 10-Q / 10-K financials  
-- Identifies companies with **strong revenue momentum (green signal)**  
+This engine is designed to be run as a **batch research tool**.
 
-### 💵 2. Market & Valuation Metrics
-Using Yahoo Finance (`yfinance`), the engine retrieves:
-- Price  
-- Market Cap  
-- Trailing P/E  
-- Forward P/E  
-- PEG Ratio  
-- Beta, Sector, Industry  
+### Typical Usage Flow
 
-### 🧠 3. Analyst Ratings (Optional)
-If `external_research.csv` is provided, the engine merges:
-- Zacks rating  
-- Bloomberg rating  
-- JPMorgan sentiment  
-- Morgan Stanley rating  
-- Consensus price targets  
+1. **Run the engine**
+   ```bash
+   python src/sec_engine_full.py
+   ```
 
-These ratings contribute to an **analyst bias score**.
+2. The engine:
+   - Downloads SEC-listed companies
+   - Screens them for strong revenue growth
+   - Pulls market valuation data
+   - Evaluates your watchlist
+   - Generates Buy / Hold / Sell signals
 
-### 🎯 4. Automated Buy / Hold / Sell Classifier
-The classifier combines:
-- SEC revenue signal  
-- Valuation category (cheap → very expensive)  
-- Forward earnings growth  
-- Analyst bias (bullish/neutral/bearish)  
-- Speculative risk detection  
+3. You review the output CSV files inside the `output/` directory and use them
+   as **decision-support input** for your investment research.
 
-Final signals are saved to:
+This engine does **not execute trades**.  
+It produces **research signals**, not financial advice.
 
-```
+---
 
-output/watchlist_signals.csv
+## 🧠 How the Engine Makes Decisions
 
-```
+All decisions are **rules-based and explainable**.  
+Each stock is evaluated through multiple stages.
 
-### 📝 5. Prompt-Based Investment Reporting
-A customizable research prompt is included at:
+---
 
-```
+## 🔍 Step-by-Step Decision Logic
 
-prompts/prompt_investing.txt
+### 1️⃣ SEC Revenue Growth Screening
 
-```
+The engine analyzes the **last 4 quarters of revenue** from SEC XBRL filings:
 
-Use it with ChatGPT or an automated report generator to produce full written investment analysis.
+✅ Conditions to PASS the revenue screen:
+- Each quarter shows sequential growth  
+  *(Q1 > Q2 > Q3 > Q4, latest first)*
+- Latest quarter revenue is higher than the same quarter last year  
+
+Stocks passing this screen receive a **green revenue flag**.
+
+---
+
+### 2️⃣ Market & Valuation Analysis
+
+For screened stocks and watchlist tickers, the engine retrieves:
+- Price
+- Market capitalization
+- Trailing P/E
+- Forward P/E
+- PEG ratio
+- Beta
+- Sector & industry
+
+The engine categorizes valuation as:
+- **Cheap** (P/E < 12)
+- **Reasonable** (P/E 12–25)
+- **Expensive** (P/E 25–40)
+- **Very Expensive** (P/E > 40)
+
+It also checks if **forward P/E improves relative to trailing P/E**, which may
+indicate expected earnings growth.
+
+---
+
+### 3️⃣ Watchlist Evaluation
+
+The watchlist is defined **directly in the code** and represents the stocks you
+actively care about.
+
+For each watchlist ticker, the engine determines:
+- Whether it passed the SEC revenue screen
+- Its valuation profile
+- Its market risk characteristics
+
+---
+
+### 4️⃣ Buy / Hold / Sell Classification
+
+Each stock receives a final classification using the following logic:
+
+---
+
+#### ✅ BUY
+A stock is marked **BUY** when:
+- Revenue growth is strong **AND**
+- Valuation is cheap or reasonable  
+**OR**
+- Forward earnings expectations are improving  
+
+---
+
+#### ⚖️ HOLD
+A stock is marked **HOLD** when:
+- Revenue growth exists but valuation is stretched
+- Signals are mixed
+- Company quality is strong but price is high
+
+---
+
+#### ❌ SELL
+A stock is marked **SELL** when:
+- It is highly speculative (no earnings, no revenue growth)
+- Valuation is extremely high with weak fundamentals
+- There are no supporting signals from revenue or valuation
+
+---
+
+### 🔍 Key Principle
+**No single metric determines the outcome.**  
+The engine combines revenue trends and valuation context to avoid false signals.
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-
-```
 investing-ai-engine/
 │
 ├── src/
-│   ├── sec_engine_full.py
-│   ├── report_generator.py
-│   └── utils.py
-│
-├── prompts/
-│   └── prompt_investing.txt
-│
-├── data/
-│   ├── external_research.csv
-│   └── watchlist.txt
+│   ├── sec_engine_full.py   # Main screening & decision engine
+│   └── utils.py             # Logging & path helpers
 │
 ├── output/
 │   ├── sec_all_tickers.csv
@@ -96,127 +148,38 @@ investing-ai-engine/
 └── .gitignore
 ```
 
+---
+
+## 📊 Key Output File
+
+```
+output/watchlist_signals.csv
+```
+
+This file contains:
+- Ticker
+- Sector & industry
+- Revenue flag (green / neutral)
+- Valuation metrics
+- Final Buy / Hold / Sell signal
+
+This is the **primary file you review** for decision support.
 
 ---
 
-## 🚀 Getting Started
+## ⚠️ Important Notes
 
-### 1️⃣ Install Dependencies
-```bash
-pip install -r requirements.txt
-````
-
-### 2️⃣ Run the Engine
-
-From the project root:
-
-```bash
-python src/sec_engine_full.py
-```
-
-### 3️⃣ View Output
-
-All results will be created inside the `output/` directory.
-
-Key files include:
-
-| File                               | Description                             |
-| ---------------------------------- | --------------------------------------- |
-| `watchlist_snapshot.csv`           | Current fundamentals from Yahoo Finance |
-| `sec_revenue_screened_with_pe.csv` | SEC + valuation data                    |
-| `final_screened_with_research.csv` | Includes analyst ratings merge          |
-| `watchlist_signals.csv`            | Final Buy/Hold/Sell recommendations     |
-
----
-
-## 🔍 Buy / Hold / Sell Logic
-
-### ✔ BUY when:
-
-* SEC revenue trend is strong
-* AND valuation is cheap or reasonable
-* OR forward earnings estimate improves
-* OR analysts are strongly bullish
-
-### ✔ HOLD when:
-
-* Signals are mixed
-* High quality but expensive
-* Growth is good but valuation stretched
-
-### ✔ SELL when:
-
-* Very expensive with bearish analysts
-* No earnings + no revenue trend + no analyst support
-* Purely speculative fundamentals
-
----
-
-## 🧪 Default Watchlist
-
-Included in the engine:
-
-```
-GOOGL, TSM, MSFT, NVDA, BABA,
-JNJ, SONY, WMT, AMZN, JD,
-SERV, AMD, EH, NICE, QBTS, GE
-```
-
-You may also list custom tickers in:
-
-```
-data/watchlist.txt
-```
-
----
-
-## 🛠️ Planned Enhancements
-
-* ❇️ Backtesting engine
-* 📈 Portfolio optimization tools
-* 📝 Automated PDF/Markdown report generator
-* 🎯 Price target modeling
-* 📊 Performance dashboards
-
----
-
-## 🤝 Contributing
-
-Contributions, suggestions, and PRs are welcome!
-This project is ideal for extension into a full quantitative research framework.
+- This engine is **rule-based**, not machine learning
+- Logic is intentionally simple, transparent, and auditable
+- Designed for **research and education**
+- Not investment advice
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **MIT License**.
-See the `LICENSE` file for full details.
+MIT License
 
 ---
 
-## ⭐ Acknowledgements
-
-* SEC XBRL public data API
-* Yahoo Finance API (`yfinance`)
-* Analyst data providers
-* AI-assisted research workflows
-
----
-
-# 🚀 Enjoy your automated investing engine!
-
-```
-
----
-
-# 🎉 FIXED
-
-Your README now:
-
-- ✔ Has perfect Markdown formatting  
-- ✔ Has properly displayed folder structure  
-- ✔ Uses correct code fences  
-- ✔ Works in **GitHub**, **VS Code**, and **PyCharm**  
-- ✔ Has no YAML content, so no YAML errors  
-
-
+🚀 **Use this engine as a systematic research assistant — not a trading system.**

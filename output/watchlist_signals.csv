@@ -1,0 +1,17 @@
+ticker,name,sector,industry,price,trailing_PE,forward_PE,beta,rev_flag,final_recommendation
+GOOGL,Alphabet Inc.,Communication Services,Internet Content & Information,313.72,31.0,35.013393,1.07,neutral,HOLD
+TSM,Taiwan Semiconductor Manufacturing Company Limited,Technology,Semiconductors,301.87,31.217165,37.36015,1.267,neutral,HOLD
+MSFT,Microsoft Corporation,Technology,Software - Infrastructure,491.02,34.923183,32.844147,1.07,neutral,HOLD
+NVDA,NVIDIA Corporation,Technology,Semiconductors,185.55,46.042183,45.03641,2.284,neutral,HOLD
+BABA,Alibaba Group Holding Limited,Consumer Cyclical,Internet Retail,158.13,21.397837,16.021276,0.323,neutral,BUY
+JNJ,Johnson & Johnson,Healthcare,Drug Manufacturers - General,201.62,19.46139,19.020754,0.349,neutral,BUY
+SONY,Sony Group Corporation,Technology,Consumer Electronics,27.55,21.356588,23.151258,0.84,neutral,HOLD
+WMT,Walmart Inc. Common Stock,Consumer Defensive,Discount Stores,113.56,39.845615,41.75,0.641,neutral,HOLD
+AMZN,"Amazon.com, Inc.",Consumer Cyclical,Internet Retail,226.89,32.091938,36.89268,1.372,neutral,HOLD
+JD,"JD.com, Inc.",Consumer Cyclical,Internet Retail,29.92,9.973333,7.227053,0.421,neutral,BUY
+SERV,Serve Robotics Inc.,Industrials,Specialty Industrial Machinery,13.42,,-21.64516,,green,HOLD
+AMD,"Advanced Micro Devices, Inc.",Technology,Semiconductors,221.11,115.16146,43.354904,1.927,neutral,HOLD
+EH,EHang Holdings Limited,Industrials,Aerospace & Defense,14.41,,62.652172,0.562,neutral,HOLD
+NICE,NICE Ltd.,Technology,Software - Application,105.72,12.013637,8.686935,0.34,neutral,BUY
+QBTS,D-Wave Quantum Inc.,Technology,Computer Hardware,28.44,,-109.38462,1.564,neutral,HOLD
+GE,GE Aerospace,Industrials,Aerospace & Defense,287.19,38.445786,54.807255,1.405,neutral,HOLD
