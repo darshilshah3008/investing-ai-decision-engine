@@ -2,6 +2,7 @@
 // Hot-links the AI-generated illustrations from Google's CDN.
 
 import Link from "next/link";
+import { PublicFooter } from "@/components/public-footer";
 
 export default function LandingPage() {
   return (
@@ -19,12 +20,12 @@ export default function LandingPage() {
           >
             Pricing
           </Link>
-          <a
-            href="https://github.com/"
+          <Link
+            href="/methodology"
             className="text-slate-400 font-sans text-xs uppercase tracking-widest font-bold hover:text-primary transition-colors"
           >
-            Docs
-          </a>
+            Methodology
+          </Link>
           <Link
             href="/dashboard"
             className="text-slate-400 font-sans text-xs uppercase tracking-widest font-bold hover:text-primary transition-colors"
@@ -249,37 +250,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="py-12 border-t border-[#1F2937] px-gutter">
-        <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-lg">
-            <div className="flex flex-col items-center md:items-start gap-2">
-              <div className="flex items-center gap-sm">
-                <span className="material-symbols-outlined text-primary">memory</span>
-                <span className="text-base font-black text-slate-50 tracking-tight">
-                  INVESTING AI
-                </span>
-              </div>
-              <p className="font-label-caps text-on-surface-variant text-[10px]">
-                RESEARCH, NOT ADVICE.
-              </p>
-            </div>
-            <div className="flex gap-lg font-label-caps text-[12px] text-on-surface-variant">
-              <a className="hover:text-primary transition-colors" href="#">PRIVACY</a>
-              <a className="hover:text-primary transition-colors" href="#">TERMS</a>
-              <a
-                className="hover:text-primary transition-colors flex items-center gap-1"
-                href="https://github.com/"
-              >
-                GITHUB
-                <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-              </a>
-            </div>
-            <div className="font-data-sm text-[10px] text-outline">
-              © 2026 DECISION ENGINE V2.4.0
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </>
   );
 }

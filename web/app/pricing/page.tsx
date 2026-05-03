@@ -2,6 +2,7 @@
 // Pure marketing page (server-rendered, no auth gate).
 
 import Link from "next/link";
+import { PublicFooter } from "@/components/public-footer";
 
 const PLANS = [
   {
@@ -68,6 +69,12 @@ export default function PricingPage() {
             className="text-primary font-sans text-xs uppercase tracking-widest font-bold"
           >
             Pricing
+          </Link>
+          <Link
+            href="/methodology"
+            className="text-slate-400 font-sans text-xs uppercase tracking-widest font-bold hover:text-primary transition-colors"
+          >
+            Methodology
           </Link>
           <Link
             href="/dashboard"
@@ -186,6 +193,7 @@ export default function PricingPage() {
           </p>
         </div>
       </main>
+      <PublicFooter />
     </>
   );
 }
