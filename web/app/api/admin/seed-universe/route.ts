@@ -65,15 +65,16 @@ export async function POST(req: NextRequest) {
 
   for (const ticker of list) {
     try {
-      const snap = await fetchSnapshot(ticker).catch(() => ({
-        ticker,
-        price: null,
-        marketCap: null,
-      }));
+      const snap = await fetchSnapshot(ticker);
       const v = await computeVerdict({
         ticker,
         currentPrice: snap.price,
-        marketCap: "marketCap" in snap ? (snap as { marketCap: number | null }).marketCap : null,
+        marketCap: snap.marketCap,
+        dividendYield: snap.dividendYield,
+        forwardPE: snap.forwardPE,
+        beta: snap.beta,
+        sector: snap.sector,
+        industry: snap.industry,
       });
       await db.collection("universe").doc(ticker).set({
         ticker: v.ticker,
@@ -83,7 +84,10 @@ export async function POST(req: NextRequest) {
         totalScore: v.totalScore,
         price: v.marketSnapshot.price,
         marketCap: v.marketSnapshot.marketCap,
-        sector: null,
+        dividendYield: v.marketSnapshot.dividendYield,
+        forwardPE: v.marketSnapshot.forwardPE,
+        sector: v.marketSnapshot.sector,
+        industry: v.marketSnapshot.industry,
         computedAt: Date.now(),
       });
       results.push({ ticker, ok: true, verdict: v.verdict });

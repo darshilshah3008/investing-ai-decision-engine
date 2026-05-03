@@ -50,6 +50,12 @@ export interface WatchlistEntry {
   id: string;
   name: string;
   tickers: string[];
+  /**
+   * Optional per-ticker portfolio weight (percentage 0-100).
+   * Sum may exceed 100 (over-allocated) or fall below (cash position).
+   * Stored sparsely — missing ticker means weight 0.
+   */
+  weights?: Record<string, number>;
   createdAt: number;
   updatedAt: number;
 }
@@ -82,17 +88,30 @@ export async function getWatchlist(uid: string, wid: string): Promise<WatchlistE
 export async function upsertWatchlist(
   uid: string,
   wid: string,
-  data: { name: string; tickers: string[] },
+  data: { name: string; tickers: string[]; weights?: Record<string, number> },
 ): Promise<void> {
   const { db } = getAdmin();
   if (!db) throw new Error("Firebase admin not configured");
   const ref = db.collection("users").doc(uid).collection("watchlists").doc(wid);
   const now = Date.now();
   const existing = await ref.get();
+  // Strip weights for tickers no longer in the list — keeps the doc tidy.
+  const cleanedWeights: Record<string, number> = {};
+  if (data.weights) {
+    for (const t of data.tickers) {
+      const w = data.weights[t];
+      if (typeof w === "number" && w > 0) cleanedWeights[t] = w;
+    }
+  }
+  const payload = {
+    name: data.name,
+    tickers: data.tickers,
+    weights: cleanedWeights,
+  };
   if (existing.exists) {
-    await ref.update({ ...data, updatedAt: now });
+    await ref.update({ ...payload, updatedAt: now });
   } else {
-    await ref.set({ ...data, createdAt: now, updatedAt: now });
+    await ref.set({ ...payload, createdAt: now, updatedAt: now });
   }
 }
 

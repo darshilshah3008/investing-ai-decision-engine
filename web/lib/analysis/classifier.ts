@@ -130,6 +130,11 @@ export interface ComputeVerdictArgs {
   ticker: string;
   currentPrice?: number | null;
   marketCap?: number | null;
+  dividendYield?: number | null;
+  forwardPE?: number | null;
+  beta?: number | null;
+  sector?: string | null;
+  industry?: string | null;
 }
 
 export async function computeVerdict(
@@ -271,6 +276,11 @@ export async function computeVerdict(
     marketSnapshot: {
       price: args.currentPrice ?? null,
       marketCap: args.marketCap ?? null,
+      dividendYield: args.dividendYield ?? null,
+      forwardPE: args.forwardPE ?? null,
+      beta: args.beta ?? null,
+      sector: args.sector ?? null,
+      industry: args.industry ?? null,
     },
   };
 }

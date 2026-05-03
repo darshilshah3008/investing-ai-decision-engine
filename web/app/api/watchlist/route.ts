@@ -33,7 +33,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   try {
-    const body = (await req.json()) as { name?: string; tickers?: string[] };
+    const body = (await req.json()) as {
+      name?: string;
+      tickers?: string[];
+      weights?: Record<string, number>;
+    };
     if (!body.name || !Array.isArray(body.tickers)) {
       return NextResponse.json({ error: "Invalid body" }, { status: 400 });
     }
@@ -41,6 +45,7 @@ export async function POST(req: NextRequest) {
     await upsertWatchlist(uid, wid, {
       name: body.name,
       tickers: body.tickers.map((t) => t.toUpperCase()),
+      weights: body.weights,
     });
     return NextResponse.json({ id: wid });
   } catch (err) {

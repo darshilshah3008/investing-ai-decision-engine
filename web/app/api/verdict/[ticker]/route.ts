@@ -42,11 +42,21 @@ export async function GET(
       price: null,
       prevClose: null,
       marketCap: null,
+      dividendYield: null,
+      forwardPE: null,
+      beta: null,
+      sector: null,
+      industry: null,
     }));
     const verdict = await computeVerdict({
       ticker,
       currentPrice: snap.price,
       marketCap: snap.marketCap,
+      dividendYield: snap.dividendYield,
+      forwardPE: snap.forwardPE,
+      beta: snap.beta,
+      sector: snap.sector,
+      industry: snap.industry,
     });
     // Best-effort cache write — don't fail the request if Firebase isn't configured
     setCachedVerdict(verdict).catch(() => undefined);

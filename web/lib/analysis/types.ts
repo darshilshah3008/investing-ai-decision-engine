@@ -76,6 +76,11 @@ export interface VerdictDoc {
   marketSnapshot: {
     price: number | null;
     marketCap: number | null;
+    dividendYield: number | null; // 0-1 fraction
+    forwardPE: number | null;
+    beta: number | null;
+    sector: string | null;
+    industry: string | null;
   };
   externalContext?: ExternalContext;
 }
