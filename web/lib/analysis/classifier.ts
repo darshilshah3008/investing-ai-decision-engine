@@ -132,9 +132,16 @@ export interface ComputeVerdictArgs {
   marketCap?: number | null;
   dividendYield?: number | null;
   forwardPE?: number | null;
+  trailingPE?: number | null;
   beta?: number | null;
   sector?: string | null;
   industry?: string | null;
+  fiftyTwoWeekHigh?: number | null;
+  fiftyTwoWeekLow?: number | null;
+  fiftyDayAverage?: number | null;
+  twoHundredDayAverage?: number | null;
+  regularMarketChangePct?: number | null;
+  businessSummary?: string | null;
 }
 
 export async function computeVerdict(
@@ -278,9 +285,16 @@ export async function computeVerdict(
       marketCap: args.marketCap ?? null,
       dividendYield: args.dividendYield ?? null,
       forwardPE: args.forwardPE ?? null,
+      trailingPE: args.trailingPE ?? null,
       beta: args.beta ?? null,
       sector: args.sector ?? null,
       industry: args.industry ?? null,
+      fiftyTwoWeekHigh: args.fiftyTwoWeekHigh ?? null,
+      fiftyTwoWeekLow: args.fiftyTwoWeekLow ?? null,
+      fiftyDayAverage: args.fiftyDayAverage ?? null,
+      twoHundredDayAverage: args.twoHundredDayAverage ?? null,
+      regularMarketChangePct: args.regularMarketChangePct ?? null,
+      businessSummary: args.businessSummary ?? null,
     },
   };
 }

@@ -36,15 +36,22 @@ interface YahooQuoteSummaryResult {
       summaryDetail?: {
         dividendYield?: YahooQuoteSummaryRaw<number>;
         forwardPE?: YahooQuoteSummaryRaw<number>;
+        trailingPE?: YahooQuoteSummaryRaw<number>;
         marketCap?: YahooQuoteSummaryRaw<number>;
         beta?: YahooQuoteSummaryRaw<number>;
+        fiftyTwoWeekHigh?: YahooQuoteSummaryRaw<number>;
+        fiftyTwoWeekLow?: YahooQuoteSummaryRaw<number>;
+        fiftyDayAverage?: YahooQuoteSummaryRaw<number>;
+        twoHundredDayAverage?: YahooQuoteSummaryRaw<number>;
       };
       assetProfile?: {
         sector?: string;
         industry?: string;
+        longBusinessSummary?: string;
       };
       price?: {
         regularMarketPrice?: YahooQuoteSummaryRaw<number>;
+        regularMarketChangePercent?: YahooQuoteSummaryRaw<number>;
       };
     }>;
   };
@@ -57,9 +64,20 @@ export interface MarketSnapshot {
   marketCap: number | null;
   dividendYield: number | null; // 0-1 fraction (0.025 = 2.5%)
   forwardPE: number | null;
+  trailingPE: number | null;
   beta: number | null;
   sector: string | null;
   industry: string | null;
+  /** 52-week high / low — useful for range bars on the verdict screen */
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  /** 50-day and 200-day moving averages for trend context */
+  fiftyDayAverage: number | null;
+  twoHundredDayAverage: number | null;
+  /** Today's percentage change vs previous close */
+  regularMarketChangePct: number | null;
+  /** Plain-English company description (for the verdict screen) */
+  businessSummary: string | null;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
@@ -154,17 +172,37 @@ async function fetchChart(
 
 type QuoteSummaryFields = Pick<
   MarketSnapshot,
-  "marketCap" | "dividendYield" | "forwardPE" | "beta" | "sector" | "industry" | "price"
+  | "marketCap"
+  | "dividendYield"
+  | "forwardPE"
+  | "trailingPE"
+  | "beta"
+  | "sector"
+  | "industry"
+  | "price"
+  | "fiftyTwoWeekHigh"
+  | "fiftyTwoWeekLow"
+  | "fiftyDayAverage"
+  | "twoHundredDayAverage"
+  | "regularMarketChangePct"
+  | "businessSummary"
 >;
 
 const EMPTY_QS: QuoteSummaryFields = {
   marketCap: null,
   dividendYield: null,
   forwardPE: null,
+  trailingPE: null,
   beta: null,
   sector: null,
   industry: null,
   price: null,
+  fiftyTwoWeekHigh: null,
+  fiftyTwoWeekLow: null,
+  fiftyDayAverage: null,
+  twoHundredDayAverage: null,
+  regularMarketChangePct: null,
+  businessSummary: null,
 };
 
 async function fetchQuoteSummary(ticker: string): Promise<QuoteSummaryFields> {
@@ -178,7 +216,7 @@ async function fetchQuoteSummary(ticker: string): Promise<QuoteSummaryFields> {
 
   const url =
     `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}` +
-    `?modules=summaryDetail,assetProfile,price` +
+    `?modules=summaryDetail,assetProfile,price,defaultKeyStatistics` +
     `&crumb=${encodeURIComponent(auth.crumb)}`;
 
   try {
@@ -208,10 +246,19 @@ async function fetchQuoteSummary(ticker: string): Promise<QuoteSummaryFields> {
       marketCap: result.summaryDetail?.marketCap?.raw ?? null,
       dividendYield: result.summaryDetail?.dividendYield?.raw ?? null,
       forwardPE: result.summaryDetail?.forwardPE?.raw ?? null,
+      trailingPE: result.summaryDetail?.trailingPE?.raw ?? null,
       beta: result.summaryDetail?.beta?.raw ?? null,
       sector: result.assetProfile?.sector ?? null,
       industry: result.assetProfile?.industry ?? null,
       price: result.price?.regularMarketPrice?.raw ?? null,
+      fiftyTwoWeekHigh: result.summaryDetail?.fiftyTwoWeekHigh?.raw ?? null,
+      fiftyTwoWeekLow: result.summaryDetail?.fiftyTwoWeekLow?.raw ?? null,
+      fiftyDayAverage: result.summaryDetail?.fiftyDayAverage?.raw ?? null,
+      twoHundredDayAverage:
+        result.summaryDetail?.twoHundredDayAverage?.raw ?? null,
+      regularMarketChangePct:
+        result.price?.regularMarketChangePercent?.raw ?? null,
+      businessSummary: result.assetProfile?.longBusinessSummary ?? null,
     };
   } catch (err) {
     console.error(`[yahoo] quoteSummary ${ticker} error:`, err);
@@ -238,9 +285,16 @@ export async function fetchSnapshot(ticker: string): Promise<MarketSnapshot> {
     marketCap: chart.marketCap ?? summary.marketCap,
     dividendYield: summary.dividendYield,
     forwardPE: summary.forwardPE,
+    trailingPE: summary.trailingPE,
     beta: summary.beta,
     sector: summary.sector,
     industry: summary.industry,
+    fiftyTwoWeekHigh: summary.fiftyTwoWeekHigh,
+    fiftyTwoWeekLow: summary.fiftyTwoWeekLow,
+    fiftyDayAverage: summary.fiftyDayAverage,
+    twoHundredDayAverage: summary.twoHundredDayAverage,
+    regularMarketChangePct: summary.regularMarketChangePct,
+    businessSummary: summary.businessSummary,
   };
   cache.set(norm, { ts: Date.now(), snap });
   return snap;

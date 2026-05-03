@@ -16,6 +16,9 @@ import {
 } from "@/lib/format";
 
 type Signal = "ALL" | "BUY" | "HOLD" | "SELL";
+type CapFilter = "ALL" | "Mega" | "Large" | "Mid" | "Small" | "Micro";
+type SortField = "score" | "ticker" | "marketCap" | "price";
+type SortDir = "asc" | "desc";
 
 interface UniverseRow {
   ticker: string;
@@ -29,6 +32,15 @@ interface UniverseRow {
   computedAt: number;
 }
 
+function bucketFromMcap(mcap: number | null | undefined): CapFilter | "—" {
+  if (mcap == null) return "—";
+  if (mcap >= 200e9) return "Mega";
+  if (mcap >= 10e9) return "Large";
+  if (mcap >= 2e9) return "Mid";
+  if (mcap >= 300e6) return "Small";
+  return "Micro";
+}
+
 interface ApiResp {
   rows: UniverseRow[];
   counts: { BUY: number; HOLD: number; SELL: number };
@@ -38,6 +50,10 @@ interface ApiResp {
 export default function UniversePage() {
   const { user, loading, configured, tier, signInWithGoogle } = useAuth();
   const [signal, setSignal] = useState<Signal>("ALL");
+  const [capFilter, setCapFilter] = useState<CapFilter>("ALL");
+  const [sectorFilter, setSectorFilter] = useState<string>("ALL");
+  const [sortField, setSortField] = useState<SortField>("score");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
   const [data, setData] = useState<ApiResp | null>(null);
   const [fetching, setFetching] = useState(false);
@@ -52,7 +68,7 @@ export default function UniversePage() {
     const params = new URLSearchParams();
     if (signal !== "ALL") params.set("signal", signal);
     if (search.trim()) params.set("search", search.trim());
-    params.set("limit", "200");
+    params.set("limit", "500");
     fetch(`/api/universe?${params.toString()}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -62,6 +78,50 @@ export default function UniversePage() {
       .catch((e) => setError(String(e)))
       .finally(() => setFetching(false));
   }, [isPro, signal, search]);
+
+  // Apply client-side filters (cap, sector) + sort that the API doesn't handle.
+  const filteredRows = useMemo(() => {
+    if (!data) return [];
+    let rows = data.rows;
+    if (capFilter !== "ALL") {
+      rows = rows.filter((r) => bucketFromMcap(r.marketCap) === capFilter);
+    }
+    if (sectorFilter !== "ALL") {
+      rows = rows.filter((r) => r.sector === sectorFilter);
+    }
+    const sorted = [...rows];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "ticker":
+          cmp = a.ticker.localeCompare(b.ticker);
+          break;
+        case "marketCap":
+          cmp = (a.marketCap ?? 0) - (b.marketCap ?? 0);
+          break;
+        case "price":
+          cmp = (a.price ?? 0) - (b.price ?? 0);
+          break;
+        case "score":
+        default:
+          cmp = a.totalScore - b.totalScore;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [data, capFilter, sectorFilter, sortField, sortDir]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir(field === "ticker" ? "asc" : "desc");
+    }
+  };
+
+  const sortIcon = (field: SortField) =>
+    sortField === field ? (sortDir === "asc" ? "↑" : "↓") : "";
 
   // Auth gate
   if (loading) {
@@ -149,8 +209,8 @@ export default function UniversePage() {
         </div>
 
         {/* Search + filter row */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex-1 min-w-[220px] flex items-center gap-2 px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg">
             <span className="material-symbols-outlined text-on-surface-variant">search</span>
             <input
               value={search}
@@ -171,12 +231,56 @@ export default function UniversePage() {
             value={signal}
             onChange={(e) => setSignal(e.target.value as Signal)}
             className="bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+            title="Filter by engine verdict"
           >
             <option value="ALL">All signals</option>
             <option value="BUY">BUY only</option>
             <option value="HOLD">HOLD only</option>
             <option value="SELL">SELL only</option>
           </select>
+          <select
+            value={capFilter}
+            onChange={(e) => setCapFilter(e.target.value as CapFilter)}
+            className="bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+            title="Filter by market-cap bucket"
+          >
+            <option value="ALL">All caps</option>
+            <option value="Mega">Mega ($200B+)</option>
+            <option value="Large">Large ($10B+)</option>
+            <option value="Mid">Mid ($2B+)</option>
+            <option value="Small">Small ($300M+)</option>
+            <option value="Micro">Micro</option>
+          </select>
+          <select
+            value={sectorFilter}
+            onChange={(e) => setSectorFilter(e.target.value)}
+            className="bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+            title="Filter by GICS sector"
+          >
+            <option value="ALL">All sectors</option>
+            {Array.from(
+              new Set(
+                (data?.rows ?? [])
+                  .map((r) => r.sector)
+                  .filter((s): s is string => !!s),
+              ),
+            )
+              .sort()
+              .map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+          </select>
+          <button
+            onClick={() => exportCSV(filteredRows)}
+            disabled={!data || filteredRows.length === 0}
+            className="bg-surface-container border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high disabled:opacity-50 flex items-center gap-1"
+            title="Export filtered rows as CSV"
+          >
+            <span className="material-symbols-outlined text-[16px]">download</span>
+            CSV
+          </button>
         </div>
 
         {/* Table */}
@@ -184,53 +288,65 @@ export default function UniversePage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface-container-high/50 border-b border-[#1F2937]">
-                <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Ticker</th>
+                <SortableTh active={sortField === "ticker"} dir={sortDir} onClick={() => toggleSort("ticker")}>
+                  Ticker {sortIcon("ticker")}
+                </SortableTh>
                 <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Company</th>
+                <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Sector</th>
                 <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Verdict</th>
-                <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Score</th>
-                <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Price</th>
-                <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">Market Cap</th>
+                <SortableTh active={sortField === "score"} dir={sortDir} onClick={() => toggleSort("score")}>
+                  Score {sortIcon("score")}
+                </SortableTh>
+                <SortableTh active={sortField === "price"} dir={sortDir} onClick={() => toggleSort("price")}>
+                  Price {sortIcon("price")}
+                </SortableTh>
+                <SortableTh active={sortField === "marketCap"} dir={sortDir} onClick={() => toggleSort("marketCap")}>
+                  Market Cap {sortIcon("marketCap")}
+                </SortableTh>
                 <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1F2937]">
               {fetching && (
                 <tr>
-                  <td colSpan={7} className="px-gutter py-6 text-center text-on-surface-variant text-sm">
+                  <td colSpan={8} className="px-gutter py-6 text-center text-on-surface-variant text-sm">
                     Loading universe…
                   </td>
                 </tr>
               )}
               {error && (
                 <tr>
-                  <td colSpan={7} className="px-gutter py-6 text-center text-error text-sm">
+                  <td colSpan={8} className="px-gutter py-6 text-center text-error text-sm">
                     {error}
                   </td>
                 </tr>
               )}
-              {!fetching && !error && data && data.rows.length === 0 && (
+              {!fetching && !error && data && filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-gutter py-12 text-center">
+                  <td colSpan={8} className="px-gutter py-12 text-center">
                     <p className="text-on-surface-variant text-sm mb-1">
                       {data.total === 0
                         ? "Universe not yet seeded."
-                        : "No matches for that filter."}
+                        : "No matches for that filter combination."}
                     </p>
                     <p className="text-on-surface-variant text-xs">
                       {data.total === 0
                         ? "Run scripts/seed-universe.ts or trigger /api/admin/seed-universe to populate."
-                        : "Try clearing the search or signal filter."}
+                        : "Try clearing search, cap, or sector filter."}
                     </p>
                   </td>
                 </tr>
               )}
               {!fetching &&
                 !error &&
-                data?.rows.map((r) => (
+                filteredRows.map((r) => (
                   <tr key={r.ticker} className="hover:bg-[#1A2230] transition-colors">
                     <td className="px-gutter py-3 font-data-md text-data-md text-slate-50">{r.ticker}</td>
-                    <td className="px-gutter py-3 text-body-sm text-slate-300 truncate max-w-[260px]">
+                    <td className="px-gutter py-3 text-body-sm text-slate-300 truncate max-w-[220px]">
                       {r.companyName}
+                    </td>
+                    <td className="px-gutter py-3 text-body-sm text-on-surface-variant truncate max-w-[140px]">
+                      {r.sector ?? "—"}
                     </td>
                     <td className="px-gutter py-3">
                       <span
@@ -270,7 +386,8 @@ export default function UniversePage() {
         </div>
 
         <p className="mt-4 text-xs text-on-surface-variant text-center">
-          Showing top {data?.rows.length ?? 0} by score · Universe refreshed weekly via background job
+          Showing {filteredRows.length} of {data?.total ?? 0} stocks · sorted by{" "}
+          {sortField} {sortDir === "asc" ? "ascending" : "descending"}
           {data?.rows[0]?.computedAt
             ? ` · last refresh ${formatRelativeTime(data.rows[0].computedAt)}`
             : ""}
@@ -366,4 +483,68 @@ function formatMcap(n: number | null): string {
   if (abs >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
   if (abs >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
   return `$${n.toLocaleString()}`;
+}
+
+function SortableTh({
+  active,
+  dir,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  dir: "asc" | "desc";
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  void dir; // arrow rendered by caller via icon prop
+  return (
+    <th
+      className={
+        "px-gutter py-3 font-label-caps text-[10px] uppercase tracking-widest cursor-pointer select-none transition-colors " +
+        (active
+          ? "text-primary"
+          : "text-slate-400 hover:text-on-surface")
+      }
+      onClick={onClick}
+    >
+      {children}
+    </th>
+  );
+}
+
+function exportCSV(rows: UniverseRow[]): void {
+  if (rows.length === 0) return;
+  const header = [
+    "Ticker",
+    "Company",
+    "Sector",
+    "Verdict",
+    "Score",
+    "Price",
+    "MarketCap",
+  ];
+  const csvRows = [
+    header.join(","),
+    ...rows.map((r) =>
+      [
+        r.ticker,
+        // Escape quotes + commas in company name
+        `"${(r.companyName ?? "").replace(/"/g, '""')}"`,
+        `"${(r.sector ?? "").replace(/"/g, '""')}"`,
+        r.verdict,
+        r.totalScore.toFixed(4),
+        r.price ?? "",
+        r.marketCap ?? "",
+      ].join(","),
+    ),
+  ];
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `universe-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

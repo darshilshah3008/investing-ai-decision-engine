@@ -277,6 +277,9 @@ function VerdictView({
         </div>
       </section>
 
+      {/* Stock context — sector chip, 52W range, valuation multiples */}
+      <StockContext snapshot={verdict.marketSnapshot} />
+
       {/* Thesis */}
       <section className="mb-xl">
         <p className="font-serif italic text-xl leading-relaxed text-on-surface opacity-90 border-l-2 border-primary pl-gutter">
@@ -305,13 +308,304 @@ function VerdictView({
       {/* Sensitivity table */}
       <SensitivityCard items={verdict.sensitivity} />
 
+      {/* News headlines (external context, not in math) */}
+      <NewsPanel ticker={verdict.ticker} companyName={verdict.companyName} />
+
       {/* What others are saying — disclaimer */}
       <div className="mt-xl text-center text-xs text-on-surface-variant max-w-xl mx-auto opacity-70">
         Verdict computed from SEC EDGAR filings only. External analyst opinions and
-        news sentiment are excluded by design — they don't influence the math.
-        See REQUIREMENTS.md §5B for the rationale.
+        news headlines (above) are shown for context — they do NOT influence the verdict math.
       </div>
     </>
+  );
+}
+
+interface NewsItem {
+  title: string;
+  url: string;
+  source: string | null;
+  publishedAt: string;
+}
+
+function NewsPanel({
+  ticker,
+  companyName,
+}: {
+  ticker: string;
+  companyName: string;
+}) {
+  const [items, setItems] = useState<NewsItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setItems(null);
+    setError(null);
+    const params = new URLSearchParams({
+      company: companyName,
+      limit: "8",
+    });
+    fetch(`/api/news/${ticker}?${params.toString()}`)
+      .then((r) => r.json())
+      .then((data) => setItems(data.items ?? []))
+      .catch((e) => setError(String(e)));
+  }, [ticker, companyName]);
+
+  return (
+    <section className="mt-xl bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
+      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-on-surface-variant text-[18px]">
+            newspaper
+          </span>
+          <h3 className="font-label-caps text-label-caps">RECENT HEADLINES</h3>
+        </div>
+        <span className="text-[10px] text-on-surface-variant">
+          via Google News · for context, not verdict input
+        </span>
+      </div>
+      <div className="p-md">
+        {items === null && !error && (
+          <p className="text-xs text-on-surface-variant py-2">Loading headlines…</p>
+        )}
+        {error && (
+          <p className="text-xs text-tertiary py-2">Couldn't load headlines: {error}</p>
+        )}
+        {items && items.length === 0 && (
+          <p className="text-xs text-on-surface-variant py-2">
+            No recent headlines found.
+          </p>
+        )}
+        {items && items.length > 0 && (
+          <ul className="divide-y divide-outline-variant">
+            {items.map((item, i) => (
+              <li key={i} className="py-2 first:pt-0 last:pb-0">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block hover:bg-surface-container-low -mx-2 px-2 py-1 rounded transition-colors"
+                >
+                  <div className="text-sm text-on-surface leading-snug mb-1">
+                    {item.title}
+                  </div>
+                  <div className="text-[11px] text-on-surface-variant flex items-center gap-2">
+                    {item.source && (
+                      <span className="font-medium">{item.source}</span>
+                    )}
+                    <span>·</span>
+                    <span>{formatRelativeTime(item.publishedAt)}</span>
+                    <span className="material-symbols-outlined text-[12px] ml-auto">
+                      open_in_new
+                    </span>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function StockContext({
+  snapshot,
+}: {
+  snapshot: VerdictDoc["marketSnapshot"];
+}) {
+  const {
+    price,
+    fiftyTwoWeekHigh,
+    fiftyTwoWeekLow,
+    fiftyDayAverage,
+    twoHundredDayAverage,
+    trailingPE,
+    forwardPE,
+    beta,
+    sector,
+    industry,
+    regularMarketChangePct,
+    businessSummary,
+    dividendYield,
+  } = snapshot;
+
+  // 52-week range bar position
+  const rangePct =
+    price != null && fiftyTwoWeekHigh != null && fiftyTwoWeekLow != null && fiftyTwoWeekHigh > fiftyTwoWeekLow
+      ? Math.max(0, Math.min(100, ((price - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow)) * 100))
+      : null;
+
+  // Show nothing if we have no extra context yet
+  const hasAnyData = sector || price != null || trailingPE != null;
+  if (!hasAnyData) return null;
+
+  return (
+    <section className="mb-lg bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="font-label-caps text-label-caps">STOCK CONTEXT</h3>
+          {sector && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="px-2 py-0.5 bg-primary-container/20 border border-primary/30 rounded text-primary font-data-sm">
+                {sector}
+              </span>
+              {industry && (
+                <span className="text-on-surface-variant">· {industry}</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-md grid grid-cols-1 md:grid-cols-3 gap-md">
+        {/* 52-week range visualization */}
+        <div className="md:col-span-2">
+          <div className="flex items-end justify-between mb-2">
+            <span className="font-label-caps text-on-surface-variant">
+              52-WEEK RANGE
+            </span>
+            {regularMarketChangePct != null && (
+              <span
+                className={
+                  "text-xs font-data-sm " +
+                  (regularMarketChangePct >= 0 ? "text-secondary" : "text-tertiary")
+                }
+              >
+                Today: {regularMarketChangePct >= 0 ? "+" : ""}
+                {regularMarketChangePct.toFixed(2)}%
+              </span>
+            )}
+          </div>
+          {rangePct != null ? (
+            <>
+              <div className="relative h-2 bg-surface-container-lowest rounded-full overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-tertiary via-amber-300 to-secondary opacity-30"
+                  style={{ width: "100%" }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-on-surface rounded-full shadow ring-2 ring-surface-container"
+                  style={{ left: `calc(${rangePct}% - 6px)` }}
+                  title={`Current price ${price?.toFixed(2)} sits ${rangePct.toFixed(0)}% of the way from 52W low to high`}
+                />
+              </div>
+              <div className="flex justify-between mt-1.5 text-xs font-data-sm text-on-surface-variant">
+                <span title="52-week low">${fiftyTwoWeekLow?.toFixed(2)}</span>
+                <span className="text-on-surface font-medium">
+                  ${price?.toFixed(2)}{" "}
+                  <span className="text-on-surface-variant text-[10px]">
+                    ({rangePct.toFixed(0)}% of range)
+                  </span>
+                </span>
+                <span title="52-week high">${fiftyTwoWeekHigh?.toFixed(2)}</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-on-surface-variant py-2">
+              52-week range data unavailable
+            </p>
+          )}
+
+          {/* Moving averages */}
+          {(fiftyDayAverage != null || twoHundredDayAverage != null) && (
+            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-outline-variant">
+              {fiftyDayAverage != null && (
+                <div title="50-day moving average — short-term trend reference">
+                  <p className="font-label-caps text-on-surface-variant">
+                    50-DAY AVG
+                  </p>
+                  <p className="font-data-md text-data-md text-on-surface">
+                    ${fiftyDayAverage.toFixed(2)}
+                    {price != null && (
+                      <span
+                        className={
+                          "text-xs ml-2 " +
+                          (price >= fiftyDayAverage
+                            ? "text-secondary"
+                            : "text-tertiary")
+                        }
+                      >
+                        ({price >= fiftyDayAverage ? "+" : ""}
+                        {(((price - fiftyDayAverage) / fiftyDayAverage) * 100).toFixed(1)}%)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+              {twoHundredDayAverage != null && (
+                <div title="200-day moving average — long-term trend reference">
+                  <p className="font-label-caps text-on-surface-variant">
+                    200-DAY AVG
+                  </p>
+                  <p className="font-data-md text-data-md text-on-surface">
+                    ${twoHundredDayAverage.toFixed(2)}
+                    {price != null && (
+                      <span
+                        className={
+                          "text-xs ml-2 " +
+                          (price >= twoHundredDayAverage
+                            ? "text-secondary"
+                            : "text-tertiary")
+                        }
+                      >
+                        ({price >= twoHundredDayAverage ? "+" : ""}
+                        {(((price - twoHundredDayAverage) / twoHundredDayAverage) * 100).toFixed(1)}%)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Multiples */}
+        <div className="grid grid-cols-2 gap-2">
+          <Stat label="P/E TTM" value={trailingPE?.toFixed(1)} suffix="x" tip="Price ÷ trailing 12-month EPS — how much you pay per dollar of last year's earnings" />
+          <Stat label="Fwd P/E" value={forwardPE?.toFixed(1)} suffix="x" tip="Price ÷ analyst-forecast next-year EPS" />
+          <Stat label="Beta" value={beta?.toFixed(2)} tip="Volatility vs S&P 500. 1.0 = market. >1.5 = high. <0.7 = defensive." />
+          <Stat
+            label="Div Yield"
+            value={dividendYield != null ? (dividendYield * 100).toFixed(2) : null}
+            suffix="%"
+            tip="Trailing 12-month dividends ÷ price"
+          />
+        </div>
+      </div>
+
+      {businessSummary && (
+        <div className="px-md py-sm border-t border-outline-variant text-xs text-on-surface-variant leading-relaxed">
+          <p className="font-label-caps text-on-surface mb-1">ABOUT</p>
+          <p className="line-clamp-3">{businessSummary}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  suffix,
+  tip,
+}: {
+  label: string;
+  value: string | null | undefined;
+  suffix?: string;
+  tip?: string;
+}) {
+  return (
+    <div
+      className="bg-surface-container-low border border-outline-variant rounded p-2"
+      title={tip}
+    >
+      <p className="font-label-caps text-on-surface-variant text-[9px]">
+        {label}
+      </p>
+      <p className="font-data-md text-data-md text-on-surface">
+        {value != null ? value + (suffix ?? "") : "—"}
+      </p>
+    </div>
   );
 }
 

@@ -37,26 +37,23 @@ export async function GET(
     }
 
     // Compute fresh
-    const snap = await fetchSnapshot(ticker).catch(() => ({
-      ticker,
-      price: null,
-      prevClose: null,
-      marketCap: null,
-      dividendYield: null,
-      forwardPE: null,
-      beta: null,
-      sector: null,
-      industry: null,
-    }));
+    const snap = await fetchSnapshot(ticker).catch(() => null);
     const verdict = await computeVerdict({
       ticker,
-      currentPrice: snap.price,
-      marketCap: snap.marketCap,
-      dividendYield: snap.dividendYield,
-      forwardPE: snap.forwardPE,
-      beta: snap.beta,
-      sector: snap.sector,
-      industry: snap.industry,
+      currentPrice: snap?.price ?? null,
+      marketCap: snap?.marketCap ?? null,
+      dividendYield: snap?.dividendYield ?? null,
+      forwardPE: snap?.forwardPE ?? null,
+      trailingPE: snap?.trailingPE ?? null,
+      beta: snap?.beta ?? null,
+      sector: snap?.sector ?? null,
+      industry: snap?.industry ?? null,
+      fiftyTwoWeekHigh: snap?.fiftyTwoWeekHigh ?? null,
+      fiftyTwoWeekLow: snap?.fiftyTwoWeekLow ?? null,
+      fiftyDayAverage: snap?.fiftyDayAverage ?? null,
+      twoHundredDayAverage: snap?.twoHundredDayAverage ?? null,
+      regularMarketChangePct: snap?.regularMarketChangePct ?? null,
+      businessSummary: snap?.businessSummary ?? null,
     });
     // Best-effort cache write — don't fail the request if Firebase isn't configured
     setCachedVerdict(verdict).catch(() => undefined);

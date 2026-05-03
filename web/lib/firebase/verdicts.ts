@@ -21,7 +21,9 @@ const VERDICT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 //   4 = Yahoo crumb auth for quoteSummary; previous v3 docs had null
 //       marketCap/divYield/sector because the unauthenticated call
 //       returned 401. Force re-fetch.
-const CURRENT_SCHEMA_VERSION = 4;
+//   5 = added 52w high/low, 50d/200d averages, P/E (trailing+forward),
+//       intraday change %, business summary to marketSnapshot.
+const CURRENT_SCHEMA_VERSION = 5;
 
 export async function getCachedVerdict(ticker: string): Promise<VerdictDoc | null> {
   const { db } = getAdmin();
@@ -78,6 +80,13 @@ export interface WatchlistEntry {
    * income figure. Untouched if user hasn't set it.
    */
   portfolioTotal?: number;
+  /**
+   * Optional per-ticker cost basis in USD — the total $ the user paid
+   * for that position. Combined with current market value (computed as
+   * weight × portfolioTotal), lets us show unrealized P&L per position.
+   * Sparse map; missing means cost basis not entered.
+   */
+  costBasis?: Record<string, number>;
   createdAt: number;
   updatedAt: number;
 }
@@ -115,6 +124,7 @@ export async function upsertWatchlist(
     tickers: string[];
     weights?: Record<string, number>;
     portfolioTotal?: number;
+    costBasis?: Record<string, number>;
   },
 ): Promise<void> {
   const { db } = getAdmin();
@@ -130,6 +140,13 @@ export async function upsertWatchlist(
       if (typeof w === "number" && w > 0) cleanedWeights[t] = w;
     }
   }
+  const cleanedCostBasis: Record<string, number> = {};
+  if (data.costBasis) {
+    for (const t of data.tickers) {
+      const c = data.costBasis[t];
+      if (typeof c === "number" && c > 0) cleanedCostBasis[t] = c;
+    }
+  }
   const cleanedTotal =
     typeof data.portfolioTotal === "number" && data.portfolioTotal > 0
       ? data.portfolioTotal
@@ -138,6 +155,7 @@ export async function upsertWatchlist(
     name: data.name,
     tickers: data.tickers,
     weights: cleanedWeights,
+    costBasis: cleanedCostBasis,
     portfolioTotal: cleanedTotal,
   };
   if (existing.exists) {

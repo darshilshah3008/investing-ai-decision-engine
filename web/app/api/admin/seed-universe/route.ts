@@ -72,9 +72,16 @@ export async function POST(req: NextRequest) {
         marketCap: snap.marketCap,
         dividendYield: snap.dividendYield,
         forwardPE: snap.forwardPE,
+        trailingPE: snap.trailingPE,
         beta: snap.beta,
         sector: snap.sector,
         industry: snap.industry,
+        fiftyTwoWeekHigh: snap.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: snap.fiftyTwoWeekLow,
+        fiftyDayAverage: snap.fiftyDayAverage,
+        twoHundredDayAverage: snap.twoHundredDayAverage,
+        regularMarketChangePct: snap.regularMarketChangePct,
+        businessSummary: snap.businessSummary,
       });
       await db.collection("universe").doc(ticker).set({
         ticker: v.ticker,

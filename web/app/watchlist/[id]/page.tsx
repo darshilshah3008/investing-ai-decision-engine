@@ -25,6 +25,7 @@ interface WatchlistEntry {
   tickers: string[];
   weights?: Record<string, number>;
   portfolioTotal?: number;
+  costBasis?: Record<string, number>;
 }
 
 interface RowState {
@@ -74,6 +75,7 @@ export default function WatchlistDetailPage() {
   const [weightDraft, setWeightDraft] = useState<Record<string, string>>({});
   const [savingWeights, setSavingWeights] = useState(false);
   const [totalDraft, setTotalDraft] = useState<string>("");
+  const [costBasisDraft, setCostBasisDraft] = useState<Record<string, string>>({});
 
   // Load watchlist + auto-fetch verdicts
   useEffect(() => {
@@ -98,6 +100,12 @@ export default function WatchlistDetailPage() {
               ? String(data.watchlist.portfolioTotal)
               : "",
           );
+          const cbDrafts: Record<string, string> = {};
+          for (const t of data.watchlist.tickers) {
+            const c = data.watchlist.costBasis?.[t];
+            cbDrafts[t] = c != null ? String(c) : "";
+          }
+          setCostBasisDraft(cbDrafts);
           // Initialize row state
           const initRows: Record<string, RowState> = {};
           for (const t of data.watchlist.tickers) {
@@ -222,7 +230,7 @@ export default function WatchlistDetailPage() {
     setRunning(false);
   };
 
-  // Persist weights + portfolio total to Firestore when user clicks Save
+  // Persist weights + total + cost basis to Firestore when user clicks Save
   const persistWeights = async () => {
     if (!user || !wl) return;
     setSavingWeights(true);
@@ -231,6 +239,11 @@ export default function WatchlistDetailPage() {
       for (const [t, raw] of Object.entries(weightDraft)) {
         const v = Number(raw);
         if (Number.isFinite(v) && v > 0) nextWeights[t] = v;
+      }
+      const nextCostBasis: Record<string, number> = {};
+      for (const [t, raw] of Object.entries(costBasisDraft)) {
+        const v = Number(raw);
+        if (Number.isFinite(v) && v > 0) nextCostBasis[t] = v;
       }
       const totalParsed = Number(totalDraft);
       const nextTotal =
@@ -247,9 +260,15 @@ export default function WatchlistDetailPage() {
           tickers: wl.tickers,
           weights: nextWeights,
           portfolioTotal: nextTotal,
+          costBasis: nextCostBasis,
         }),
       });
-      setWl({ ...wl, weights: nextWeights, portfolioTotal: nextTotal });
+      setWl({
+        ...wl,
+        weights: nextWeights,
+        portfolioTotal: nextTotal,
+        costBasis: nextCostBasis,
+      });
     } finally {
       setSavingWeights(false);
     }
@@ -301,6 +320,55 @@ export default function WatchlistDetailPage() {
           : null,
     };
   }, [wl, rows, weightDraft]);
+
+  // Per-position P&L — needs portfolioTotalNum + weights + costBasis.
+  const pnl = useMemo(() => {
+    if (!wl || !portfolioTotalNum) return null;
+    const lines: {
+      ticker: string;
+      currentValue: number;
+      costBasis: number | null;
+      pnlDollars: number | null;
+      pnlPct: number | null;
+    }[] = [];
+    let totalCurrent = 0;
+    let totalCost = 0;
+    let coveredPositions = 0;
+    for (const t of wl.tickers) {
+      const w = Number(weightDraft[t] ?? "");
+      if (!Number.isFinite(w) || w <= 0) continue;
+      const currentValue = portfolioTotalNum * (w / 100);
+      const cb = Number(costBasisDraft[t] ?? "");
+      const costBasis = Number.isFinite(cb) && cb > 0 ? cb : null;
+      const pnlDollars = costBasis != null ? currentValue - costBasis : null;
+      const pnlPct =
+        costBasis != null && costBasis > 0
+          ? (currentValue - costBasis) / costBasis
+          : null;
+      lines.push({ ticker: t, currentValue, costBasis, pnlDollars, pnlPct });
+      totalCurrent += currentValue;
+      if (costBasis != null) {
+        totalCost += costBasis;
+        coveredPositions++;
+      }
+    }
+    return {
+      lines,
+      totalCurrent,
+      totalCost: coveredPositions > 0 ? totalCost : null,
+      totalPnl:
+        coveredPositions > 0 && totalCost > 0 ? totalCurrent - totalCost : null,
+      totalPnlPct:
+        coveredPositions > 0 && totalCost > 0
+          ? (totalCurrent - totalCost) / totalCost
+          : null,
+      coveragePct:
+        wl.tickers.filter((t) => Number(weightDraft[t] ?? "") > 0).length > 0
+          ? coveredPositions /
+            wl.tickers.filter((t) => Number(weightDraft[t] ?? "") > 0).length
+          : 0,
+    };
+  }, [wl, weightDraft, costBasisDraft, portfolioTotalNum]);
 
   // Per-position income forecast — needs portfolioTotalNum + weights + yields.
   const income = useMemo(() => {
@@ -456,6 +524,9 @@ export default function WatchlistDetailPage() {
               income={income}
             />
 
+            {/* P&L summary panel */}
+            <PnLSummaryPanel pnl={pnl} />
+
             {/* Personalized suggestions */}
             {composition && (
               <SuggestionsPanel
@@ -498,6 +569,8 @@ export default function WatchlistDetailPage() {
                     <Th>Mkt Cap</Th>
                     <Th>Div Yld</Th>
                     <Th className="bg-primary-container/15">Weight %</Th>
+                    <Th className="bg-primary-container/15">Cost $</Th>
+                    <Th>P&amp;L</Th>
                     <Th>Est. Div / yr</Th>
                     <Th className="text-right">Actions</Th>
                   </tr>
@@ -582,6 +655,50 @@ export default function WatchlistDetailPage() {
                             className="w-20 bg-surface-container-low border border-outline-variant rounded px-2 py-1 text-sm font-data-md text-on-surface focus:outline-none focus:border-primary"
                           />
                           <span className="text-xs text-on-surface-variant ml-1">%</span>
+                        </td>
+                        <td className="px-gutter py-3">
+                          <span className="text-xs text-on-surface-variant">$</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={100}
+                            value={costBasisDraft[t] ?? ""}
+                            onChange={(e) =>
+                              setCostBasisDraft((prev) => ({
+                                ...prev,
+                                [t]: e.target.value,
+                              }))
+                            }
+                            placeholder="0"
+                            title="What you paid for this position (total $ invested)"
+                            className="w-24 bg-surface-container-low border border-outline-variant rounded px-2 py-1 text-sm font-data-md text-on-surface focus:outline-none focus:border-primary ml-1"
+                          />
+                        </td>
+                        <td className="px-gutter py-3 font-data-md text-data-md">
+                          {(() => {
+                            const line = pnl?.lines.find((l) => l.ticker === t);
+                            if (!line || line.pnlDollars == null) {
+                              return <span className="text-on-surface-variant">—</span>;
+                            }
+                            const colorClass =
+                              line.pnlDollars > 0
+                                ? "text-secondary"
+                                : line.pnlDollars < 0
+                                  ? "text-tertiary"
+                                  : "text-on-surface-variant";
+                            return (
+                              <span className={colorClass}>
+                                {line.pnlDollars >= 0 ? "+" : ""}$
+                                {Math.abs(line.pnlDollars).toLocaleString(undefined, {
+                                  maximumFractionDigits: 0,
+                                })}
+                                <span className="text-xs ml-1">
+                                  ({line.pnlPct! >= 0 ? "+" : ""}
+                                  {(line.pnlPct! * 100).toFixed(1)}%)
+                                </span>
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-gutter py-3 font-data-md text-data-md">
                           {annualDiv != null
@@ -1019,6 +1136,90 @@ function IncomeForecastPanel({
               </div>
             </div>
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// P&L summary panel
+// ────────────────────────────────────────────────────────────────────
+
+interface PnLData {
+  lines: {
+    ticker: string;
+    currentValue: number;
+    costBasis: number | null;
+    pnlDollars: number | null;
+    pnlPct: number | null;
+  }[];
+  totalCurrent: number;
+  totalCost: number | null;
+  totalPnl: number | null;
+  totalPnlPct: number | null;
+  coveragePct: number;
+}
+
+function PnLSummaryPanel({ pnl }: { pnl: PnLData | null }) {
+  if (!pnl) return null;
+  const hasCostBasis =
+    pnl.totalPnl != null && pnl.totalCost != null && pnl.totalCost > 0;
+
+  return (
+    <div className="bg-surface-container border border-outline-variant rounded-xl mb-6 overflow-hidden">
+      <div className="flex items-center justify-between px-md py-sm bg-surface-container-high border-b border-outline-variant">
+        <div className="flex items-center gap-2">
+          <span
+            className={
+              "material-symbols-outlined text-[18px] " +
+              (pnl.totalPnl != null && pnl.totalPnl > 0
+                ? "text-secondary"
+                : pnl.totalPnl != null && pnl.totalPnl < 0
+                  ? "text-tertiary"
+                  : "text-on-surface-variant")
+            }
+          >
+            trending_up
+          </span>
+          <h3 className="font-label-caps text-label-caps">UNREALIZED P&amp;L</h3>
+        </div>
+        <span className="text-[10px] text-on-surface-variant">
+          Current value (weight × total) − cost basis
+        </span>
+      </div>
+      <div className="p-md">
+        {!hasCostBasis ? (
+          <p className="text-sm text-on-surface-variant text-center py-3">
+            Enter <span className="text-on-surface font-medium">Cost $</span> for each position
+            below — what you actually paid for it. P&amp;L per position and the portfolio total
+            will appear here once at least one cost basis is set.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <HeadlineMetric
+              label="Total invested (cost basis)"
+              value={`$${pnl.totalCost!.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+              color="text-on-surface"
+            />
+            <HeadlineMetric
+              label="Current value"
+              value={`$${pnl.totalCurrent.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+              color="text-on-surface"
+            />
+            <HeadlineMetric
+              label="Unrealized P&L"
+              value={`${pnl.totalPnl! >= 0 ? "+" : "−"}$${Math.abs(pnl.totalPnl!).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+              color={pnl.totalPnl! >= 0 ? "text-secondary" : "text-tertiary"}
+              emphasis
+            />
+            <HeadlineMetric
+              label="Return %"
+              value={`${pnl.totalPnlPct! >= 0 ? "+" : ""}${(pnl.totalPnlPct! * 100).toFixed(1)}%`}
+              color={pnl.totalPnlPct! >= 0 ? "text-secondary" : "text-tertiary"}
+              hint={`Coverage: ${(pnl.coveragePct * 100).toFixed(0)}% of positions have cost basis set`}
+            />
+          </div>
         )}
       </div>
     </div>

@@ -78,9 +78,16 @@ export interface VerdictDoc {
     marketCap: number | null;
     dividendYield: number | null; // 0-1 fraction
     forwardPE: number | null;
+    trailingPE: number | null;
     beta: number | null;
     sector: string | null;
     industry: string | null;
+    fiftyTwoWeekHigh: number | null;
+    fiftyTwoWeekLow: number | null;
+    fiftyDayAverage: number | null;
+    twoHundredDayAverage: number | null;
+    regularMarketChangePct: number | null;
+    businessSummary: string | null;
   };
   externalContext?: ExternalContext;
 }
