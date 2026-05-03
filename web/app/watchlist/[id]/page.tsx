@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ChatAssistant } from "@/components/chat-assistant";
 import { StockPickerDialog } from "@/components/stock-picker-dialog";
 import { useAuth } from "@/lib/firebase/auth-context";
 import type { VerdictDoc } from "@/lib/analysis/types";
@@ -735,6 +736,14 @@ export default function WatchlistDetailPage() {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onAnalyze={addTickers}
+      />
+
+      <ChatAssistant
+        context={{
+          kind: "portfolio",
+          watchlistId: wl.id,
+          watchlistName: wl.name,
+        }}
       />
     </AppShell>
   );

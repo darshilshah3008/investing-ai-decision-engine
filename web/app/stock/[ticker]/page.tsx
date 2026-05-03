@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { ChatAssistant } from "@/components/chat-assistant";
 import type { ModelResult, PillarResult, VerdictDoc } from "@/lib/analysis/types";
 import {
   formatNumber,
@@ -123,6 +124,15 @@ export default function VerdictPage() {
           />
         )}
       </div>
+      {verdict && (
+        <ChatAssistant
+          context={{
+            kind: "verdict",
+            ticker: verdict.ticker,
+            companyName: verdict.companyName,
+          }}
+        />
+      )}
     </AppShell>
   );
 }
