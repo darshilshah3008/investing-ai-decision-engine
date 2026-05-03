@@ -18,7 +18,10 @@ const VERDICT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 //   1 = legacy v1 engine (subScore-based, no pillars)
 //   2 = continuous-score 9-model engine (chunk 4)
 //   3 = added dividendYield, sector, beta to marketSnapshot (chunk 7)
-const CURRENT_SCHEMA_VERSION = 3;
+//   4 = Yahoo crumb auth for quoteSummary; previous v3 docs had null
+//       marketCap/divYield/sector because the unauthenticated call
+//       returned 401. Force re-fetch.
+const CURRENT_SCHEMA_VERSION = 4;
 
 export async function getCachedVerdict(ticker: string): Promise<VerdictDoc | null> {
   const { db } = getAdmin();

@@ -65,8 +65,70 @@ export interface MarketSnapshot {
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 const cache = new Map<string, { ts: number; snap: MarketSnapshot }>();
 
+// Yahoo started enforcing crumb authentication on quoteSummary in 2023.
+// Without crumb, the v10 endpoint returns 401 / "Invalid Cookie". With
+// crumb (and the matching cookie), it works fine.
+//
+// Flow: hit fc.yahoo.com to get a cookie, then /v1/test/getcrumb to get
+// the crumb value. Both are cached for 1 hour.
+
 const UA =
-  "Mozilla/5.0 (compatible; InvestingAIDecisionEngine/0.2; +https://github.com/)";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+
+let crumbCache: { cookie: string; crumb: string; ts: number } | null = null;
+const CRUMB_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function getCrumb(): Promise<{ cookie: string; crumb: string } | null> {
+  if (crumbCache && Date.now() - crumbCache.ts < CRUMB_TTL_MS) {
+    return { cookie: crumbCache.cookie, crumb: crumbCache.crumb };
+  }
+  try {
+    // Step 1: hit fc.yahoo.com to get session cookies
+    const cookieResp = await fetch("https://fc.yahoo.com/", {
+      headers: { "User-Agent": UA, Accept: "*/*" },
+      redirect: "follow",
+    });
+    const setCookieHeader = cookieResp.headers.get("set-cookie");
+    if (!setCookieHeader) {
+      console.warn("[yahoo] no set-cookie from fc.yahoo.com");
+      return null;
+    }
+    // Multiple cookies are comma-separated; we want all of them flattened
+    // to a "name=value; name=value" header value.
+    const cookie = setCookieHeader
+      .split(/,(?=\s*[A-Za-z0-9_-]+=)/)
+      .map((s) => s.split(";")[0].trim())
+      .filter(Boolean)
+      .join("; ");
+
+    // Step 2: get a crumb using the cookie
+    const crumbResp = await fetch(
+      "https://query1.finance.yahoo.com/v1/test/getcrumb",
+      {
+        headers: {
+          "User-Agent": UA,
+          Cookie: cookie,
+          Accept: "*/*",
+        },
+      },
+    );
+    if (!crumbResp.ok) {
+      console.warn(`[yahoo] crumb request failed: ${crumbResp.status}`);
+      return null;
+    }
+    const crumb = (await crumbResp.text()).trim();
+    if (!crumb || crumb.length < 5 || crumb.includes("<")) {
+      console.warn("[yahoo] crumb response looked invalid");
+      return null;
+    }
+    crumbCache = { cookie, crumb, ts: Date.now() };
+    return { cookie, crumb };
+  } catch (err) {
+    console.error("[yahoo] crumb error:", err);
+    return null;
+  }
+}
 
 async function fetchChart(
   ticker: string,
@@ -90,54 +152,70 @@ async function fetchChart(
   }
 }
 
-async function fetchQuoteSummary(
-  ticker: string,
-): Promise<
-  Pick<
-    MarketSnapshot,
-    "marketCap" | "dividendYield" | "forwardPE" | "beta" | "sector" | "industry" | "price"
-  >
-> {
+type QuoteSummaryFields = Pick<
+  MarketSnapshot,
+  "marketCap" | "dividendYield" | "forwardPE" | "beta" | "sector" | "industry" | "price"
+>;
+
+const EMPTY_QS: QuoteSummaryFields = {
+  marketCap: null,
+  dividendYield: null,
+  forwardPE: null,
+  beta: null,
+  sector: null,
+  industry: null,
+  price: null,
+};
+
+async function fetchQuoteSummary(ticker: string): Promise<QuoteSummaryFields> {
+  // Need a crumb for v10 quoteSummary in 2024+. Without it, Yahoo
+  // returns 401 "Invalid Cookie".
+  const auth = await getCrumb();
+  if (!auth) {
+    console.warn(`[yahoo] no crumb available, skipping quoteSummary for ${ticker}`);
+    return EMPTY_QS;
+  }
+
   const url =
     `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}` +
-    `?modules=summaryDetail,assetProfile,price`;
+    `?modules=summaryDetail,assetProfile,price` +
+    `&crumb=${encodeURIComponent(auth.crumb)}`;
+
   try {
     const resp = await fetch(url, {
-      headers: { "User-Agent": UA, Accept: "application/json" },
+      headers: {
+        "User-Agent": UA,
+        Cookie: auth.cookie,
+        Accept: "application/json",
+      },
       cache: "no-store",
     });
     if (!resp.ok) {
-      return {
-        marketCap: null,
-        dividendYield: null,
-        forwardPE: null,
-        beta: null,
-        sector: null,
-        industry: null,
-        price: null,
-      };
+      // Crumb may have expired — invalidate and let the next call retry
+      if (resp.status === 401 || resp.status === 403) {
+        crumbCache = null;
+      }
+      console.warn(`[yahoo] quoteSummary ${ticker}: HTTP ${resp.status}`);
+      return EMPTY_QS;
     }
     const data = (await resp.json()) as YahooQuoteSummaryResult;
     const result = data.quoteSummary?.result?.[0];
+    if (!result) {
+      console.warn(`[yahoo] quoteSummary ${ticker}: empty result`);
+      return EMPTY_QS;
+    }
     return {
-      marketCap: result?.summaryDetail?.marketCap?.raw ?? null,
-      dividendYield: result?.summaryDetail?.dividendYield?.raw ?? null,
-      forwardPE: result?.summaryDetail?.forwardPE?.raw ?? null,
-      beta: result?.summaryDetail?.beta?.raw ?? null,
-      sector: result?.assetProfile?.sector ?? null,
-      industry: result?.assetProfile?.industry ?? null,
-      price: result?.price?.regularMarketPrice?.raw ?? null,
+      marketCap: result.summaryDetail?.marketCap?.raw ?? null,
+      dividendYield: result.summaryDetail?.dividendYield?.raw ?? null,
+      forwardPE: result.summaryDetail?.forwardPE?.raw ?? null,
+      beta: result.summaryDetail?.beta?.raw ?? null,
+      sector: result.assetProfile?.sector ?? null,
+      industry: result.assetProfile?.industry ?? null,
+      price: result.price?.regularMarketPrice?.raw ?? null,
     };
-  } catch {
-    return {
-      marketCap: null,
-      dividendYield: null,
-      forwardPE: null,
-      beta: null,
-      sector: null,
-      industry: null,
-      price: null,
-    };
+  } catch (err) {
+    console.error(`[yahoo] quoteSummary ${ticker} error:`, err);
+    return EMPTY_QS;
   }
 }
 
