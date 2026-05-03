@@ -19,6 +19,7 @@ interface WatchlistEntry {
   name: string;
   tickers: string[];
   weights?: Record<string, number>;
+  portfolioTotal?: number;
 }
 
 interface RowState {
@@ -67,6 +68,7 @@ export default function WatchlistDetailPage() {
   const [running, setRunning] = useState(false);
   const [weightDraft, setWeightDraft] = useState<Record<string, string>>({});
   const [savingWeights, setSavingWeights] = useState(false);
+  const [totalDraft, setTotalDraft] = useState<string>("");
 
   // Load watchlist + auto-fetch verdicts
   useEffect(() => {
@@ -86,6 +88,11 @@ export default function WatchlistDetailPage() {
             drafts[t] = w != null ? String(w) : "";
           }
           setWeightDraft(drafts);
+          setTotalDraft(
+            data.watchlist.portfolioTotal != null
+              ? String(data.watchlist.portfolioTotal)
+              : "",
+          );
           // Initialize row state
           const initRows: Record<string, RowState> = {};
           for (const t of data.watchlist.tickers) {
@@ -210,7 +217,7 @@ export default function WatchlistDetailPage() {
     setRunning(false);
   };
 
-  // Persist weights to Firestore when user clicks Save
+  // Persist weights + portfolio total to Firestore when user clicks Save
   const persistWeights = async () => {
     if (!user || !wl) return;
     setSavingWeights(true);
@@ -220,6 +227,9 @@ export default function WatchlistDetailPage() {
         const v = Number(raw);
         if (Number.isFinite(v) && v > 0) nextWeights[t] = v;
       }
+      const totalParsed = Number(totalDraft);
+      const nextTotal =
+        Number.isFinite(totalParsed) && totalParsed > 0 ? totalParsed : undefined;
       const token = await user.getIdToken();
       await fetch(`/api/watchlist/${wl.id}`, {
         method: "PUT",
@@ -231,15 +241,21 @@ export default function WatchlistDetailPage() {
           name: wl.name,
           tickers: wl.tickers,
           weights: nextWeights,
+          portfolioTotal: nextTotal,
         }),
       });
-      setWl({ ...wl, weights: nextWeights });
+      setWl({ ...wl, weights: nextWeights, portfolioTotal: nextTotal });
     } finally {
       setSavingWeights(false);
     }
   };
 
-  // ── Derived: portfolio composition ───────────────────────────────
+  // ── Derived: portfolio composition + income forecast ─────────────
+  const portfolioTotalNum = useMemo(() => {
+    const v = Number(totalDraft);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  }, [totalDraft]);
+
   const composition = useMemo(() => {
     if (!wl) return null;
     const buckets: Record<CapBucket, { weight: number; tickers: string[] }> = {
@@ -280,6 +296,50 @@ export default function WatchlistDetailPage() {
           : null,
     };
   }, [wl, rows, weightDraft]);
+
+  // Per-position income forecast — needs portfolioTotalNum + weights + yields.
+  const income = useMemo(() => {
+    if (!wl || !portfolioTotalNum) return null;
+    const lines: {
+      ticker: string;
+      companyName: string;
+      weight: number;
+      positionDollars: number;
+      dividendYield: number | null;
+      annualIncome: number;
+    }[] = [];
+    let totalAnnual = 0;
+    let totalCovered = 0; // dollars in positions that DO pay a dividend
+    let totalAllocated = 0;
+    for (const t of wl.tickers) {
+      const raw = weightDraft[t] ?? "";
+      const w = Number(raw);
+      if (!Number.isFinite(w) || w <= 0) continue;
+      const positionDollars = portfolioTotalNum * (w / 100);
+      const dy = rows[t]?.verdict?.marketSnapshot?.dividendYield ?? null;
+      const annualIncome = dy != null ? positionDollars * dy : 0;
+      lines.push({
+        ticker: t,
+        companyName: rows[t]?.verdict?.companyName ?? t,
+        weight: w,
+        positionDollars,
+        dividendYield: dy,
+        annualIncome,
+      });
+      totalAllocated += positionDollars;
+      if (dy != null && dy > 0) totalCovered += positionDollars;
+      totalAnnual += annualIncome;
+    }
+    lines.sort((a, b) => b.annualIncome - a.annualIncome);
+    return {
+      lines,
+      totalAnnual,
+      totalAllocated,
+      totalCovered,
+      coveragePct: totalAllocated > 0 ? totalCovered / totalAllocated : 0,
+      effectiveYield: totalAllocated > 0 ? totalAnnual / totalAllocated : 0,
+    };
+  }, [wl, rows, weightDraft, portfolioTotalNum]);
 
   // ── Auth gate ───────────────────────────────────────────────────
   if (authLoading) {
@@ -375,6 +435,13 @@ export default function WatchlistDetailPage() {
               />
             )}
 
+            {/* Income forecast panel */}
+            <IncomeForecastPanel
+              totalDraft={totalDraft}
+              setTotalDraft={setTotalDraft}
+              income={income}
+            />
+
             {/* Personalized suggestions */}
             {composition && (
               <SuggestionsPanel
@@ -384,6 +451,7 @@ export default function WatchlistDetailPage() {
                 buckets={composition.buckets}
                 totalWeight={composition.totalWeight}
                 portfolioDivYield={composition.portfolioDivYield}
+                annualIncome={income?.totalAnnual ?? null}
               />
             )}
 
@@ -416,6 +484,7 @@ export default function WatchlistDetailPage() {
                     <Th>Mkt Cap</Th>
                     <Th>Div Yld</Th>
                     <Th className="bg-primary-container/15">Weight %</Th>
+                    <Th>Est. Div / yr</Th>
                     <Th className="text-right">Actions</Th>
                   </tr>
                 </thead>
@@ -425,6 +494,15 @@ export default function WatchlistDetailPage() {
                     const ms = row?.verdict?.marketSnapshot;
                     const bucket = bucketFromMcap(ms?.marketCap);
                     const divYld = ms?.dividendYield ?? null;
+                    const w = Number(weightDraft[t] ?? "");
+                    const positionDollars =
+                      portfolioTotalNum && Number.isFinite(w) && w > 0
+                        ? portfolioTotalNum * (w / 100)
+                        : null;
+                    const annualDiv =
+                      positionDollars != null && divYld != null
+                        ? positionDollars * divYld
+                        : null;
                     return (
                       <tr key={t} className="hover:bg-[#1A2230] transition-colors">
                         <td className="px-gutter py-3 font-data-md text-data-md text-slate-50">
@@ -493,6 +571,13 @@ export default function WatchlistDetailPage() {
                             className="w-20 bg-surface-container-low border border-outline-variant rounded px-2 py-1 text-sm font-data-md text-on-surface focus:outline-none focus:border-primary"
                           />
                           <span className="text-xs text-on-surface-variant ml-1">%</span>
+                        </td>
+                        <td className="px-gutter py-3 font-data-md text-data-md">
+                          {annualDiv != null
+                            ? annualDiv > 0
+                              ? <span className="text-secondary">${annualDiv.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                              : <span className="text-on-surface-variant">$0</span>
+                            : <span className="text-on-surface-variant">—</span>}
                         </td>
                         <td className="px-gutter py-3 text-right">
                           <Link
@@ -748,6 +833,221 @@ function CompositionPanel({
 }
 
 // ────────────────────────────────────────────────────────────────────
+// Income forecast panel
+// ────────────────────────────────────────────────────────────────────
+
+interface IncomeData {
+  lines: {
+    ticker: string;
+    companyName: string;
+    weight: number;
+    positionDollars: number;
+    dividendYield: number | null;
+    annualIncome: number;
+  }[];
+  totalAnnual: number;
+  totalAllocated: number;
+  totalCovered: number;
+  coveragePct: number;
+  effectiveYield: number;
+}
+
+function formatDollars(n: number): string {
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function IncomeForecastPanel({
+  totalDraft,
+  setTotalDraft,
+  income,
+}: {
+  totalDraft: string;
+  setTotalDraft: (s: string) => void;
+  income: IncomeData | null;
+}) {
+  const hasTotal = !!income && income.totalAllocated > 0;
+
+  return (
+    <div className="bg-surface-container border border-outline-variant rounded-xl mb-6 overflow-hidden">
+      <div className="flex items-center justify-between px-md py-sm bg-surface-container-high border-b border-outline-variant">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-secondary text-[18px]">
+            paid
+          </span>
+          <h3 className="font-label-caps text-label-caps">DIVIDEND INCOME FORECAST</h3>
+        </div>
+        <span className="text-[10px] text-on-surface-variant">
+          Based on TTM yields · not investment advice
+        </span>
+      </div>
+
+      <div className="p-md">
+        {/* Portfolio total input row */}
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4 pb-4 border-b border-outline-variant">
+          <label className="font-label-caps text-on-surface flex-shrink-0">
+            Total portfolio value:
+          </label>
+          <div className="flex items-center gap-1">
+            <span className="text-on-surface-variant text-sm">$</span>
+            <input
+              type="number"
+              min={0}
+              step={1000}
+              value={totalDraft}
+              onChange={(e) => setTotalDraft(e.target.value)}
+              placeholder="100000"
+              className="w-40 bg-surface-container-low border border-outline-variant rounded px-3 py-1.5 text-sm font-data-md text-on-surface focus:outline-none focus:border-primary"
+            />
+          </div>
+          <span className="text-xs text-on-surface-variant">
+            {hasTotal
+              ? "Click 'Save weights' below to persist."
+              : "Enter your total invested capital. Position $ and dividend $ are computed from this × weights."}
+          </span>
+        </div>
+
+        {!hasTotal ? (
+          <div className="text-center py-4 text-sm text-on-surface-variant">
+            Set portfolio value + weights to see your forecast next-year dividend income.
+          </div>
+        ) : (
+          <>
+            {/* Headline numbers */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <HeadlineMetric
+                label="Annual income (est.)"
+                value={formatDollars(income!.totalAnnual)}
+                color="text-secondary"
+                emphasis
+              />
+              <HeadlineMetric
+                label="Monthly average"
+                value={formatDollars(income!.totalAnnual / 12)}
+                color="text-secondary"
+              />
+              <HeadlineMetric
+                label="Effective yield on allocated"
+                value={`${(income!.effectiveYield * 100).toFixed(2)}%`}
+                color="text-on-surface"
+              />
+              <HeadlineMetric
+                label="Yield-paying coverage"
+                value={`${(income!.coveragePct * 100).toFixed(0)}%`}
+                color="text-on-surface"
+                hint={`${formatDollars(income!.totalCovered)} of ${formatDollars(income!.totalAllocated)}`}
+              />
+            </div>
+
+            {/* Top contributors */}
+            {income!.lines.filter((l) => l.annualIncome > 0).length > 0 && (
+              <div>
+                <p className="font-label-caps text-on-surface-variant mb-2">
+                  TOP CONTRIBUTORS
+                </p>
+                <div className="space-y-1">
+                  {income!.lines
+                    .filter((l) => l.annualIncome > 0)
+                    .slice(0, 5)
+                    .map((l) => {
+                      const pctOfIncome =
+                        income!.totalAnnual > 0
+                          ? (l.annualIncome / income!.totalAnnual) * 100
+                          : 0;
+                      return (
+                        <div
+                          key={l.ticker}
+                          className="flex items-center gap-3 py-1.5"
+                        >
+                          <span className="font-data-md text-on-surface w-16">
+                            {l.ticker}
+                          </span>
+                          <div className="flex-1 h-2 bg-surface-container-lowest rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-secondary"
+                              style={{ width: `${pctOfIncome}%` }}
+                            />
+                          </div>
+                          <span className="font-data-sm text-on-surface-variant text-xs w-32 text-right">
+                            {formatDollars(l.annualIncome)} / yr
+                            <span className="text-on-surface-variant ml-1">
+                              ({l.dividendYield != null ? (l.dividendYield * 100).toFixed(2) : "0"}%)
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Caveats */}
+            <div className="mt-4 pt-4 border-t border-outline-variant grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] text-on-surface-variant">
+              <div className="flex gap-2">
+                <span className="material-symbols-outlined text-[14px] text-amber-300 flex-shrink-0 mt-0.5">
+                  warning
+                </span>
+                <span>
+                  TTM yields, not forecasts. Companies cut or hike dividends — these numbers move.
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <span className="material-symbols-outlined text-[14px] text-amber-300 flex-shrink-0 mt-0.5">
+                  info
+                </span>
+                <span>
+                  Buybacks excluded. Some low-yield names (AAPL ~0.6%) return more via buybacks (~3%).
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <span className="material-symbols-outlined text-[14px] text-amber-300 flex-shrink-0 mt-0.5">
+                  public
+                </span>
+                <span>
+                  Foreign ADRs (BABA, JD, etc.) may lose 10-30% to withholding tax. Net is lower.
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HeadlineMetric({
+  label,
+  value,
+  color,
+  emphasis,
+  hint,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  emphasis?: boolean;
+  hint?: string;
+}) {
+  return (
+    <div
+      className={
+        "rounded-lg p-3 border " +
+        (emphasis
+          ? "bg-secondary/10 border-secondary/40"
+          : "bg-surface-container-low border-outline-variant")
+      }
+    >
+      <p className="font-label-caps text-on-surface-variant mb-1">{label}</p>
+      <p className={"font-display-lg text-display-lg leading-tight " + color}>
+        {value}
+      </p>
+      {hint && (
+        <p className="text-[10px] text-on-surface-variant mt-1">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
 // Personalized suggestions
 // ────────────────────────────────────────────────────────────────────
 
@@ -764,9 +1064,18 @@ function buildSuggestions(args: {
   buckets: Record<CapBucket, { weight: number; tickers: string[] }>;
   totalWeight: number;
   portfolioDivYield: number | null;
+  annualIncome: number | null;
 }): Suggestion[] {
   const out: Suggestion[] = [];
-  const { tickers, rows, weights, buckets, totalWeight, portfolioDivYield } = args;
+  const {
+    tickers,
+    rows,
+    weights,
+    buckets,
+    totalWeight,
+    portfolioDivYield,
+    annualIncome,
+  } = args;
 
   // ── 0. Empty state ──────────────────────────────────────────────
   if (totalWeight === 0) {
@@ -1035,7 +1344,21 @@ function buildSuggestions(args: {
     }
   }
 
-  // ── 11. Yield commentary ────────────────────────────────────────
+  // ── 11. Income forecast commentary ──────────────────────────────
+  if (annualIncome != null && annualIncome > 0) {
+    const monthly = annualIncome / 12;
+    out.push({
+      severity: "good",
+      title: `Estimated annual dividends: $${annualIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      body:
+        `Based on TTM yields and your weights, this portfolio should generate roughly ` +
+        `$${annualIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })} per year ` +
+        `(~$${monthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}/month). ` +
+        `If reinvested at the same yield, it would compound — and yield growth from your dividend payers is the real long-term lever.`,
+    });
+  }
+
+  // ── 12. Yield commentary ────────────────────────────────────────
   if (portfolioDivYield != null) {
     const yieldPct = portfolioDivYield * 100;
     if (yieldPct < 1.0 && totalWeight > 50) {
@@ -1070,6 +1393,7 @@ function SuggestionsPanel({
   buckets,
   totalWeight,
   portfolioDivYield,
+  annualIncome,
 }: {
   tickers: string[];
   rows: Record<string, RowState>;
@@ -1077,6 +1401,7 @@ function SuggestionsPanel({
   buckets: Record<CapBucket, { weight: number; tickers: string[] }>;
   totalWeight: number;
   portfolioDivYield: number | null;
+  annualIncome: number | null;
 }) {
   const weights: Record<string, number> = {};
   for (const [t, raw] of Object.entries(weightDraft)) {
@@ -1090,6 +1415,7 @@ function SuggestionsPanel({
     buckets,
     totalWeight,
     portfolioDivYield,
+    annualIncome,
   });
 
   return (

@@ -72,6 +72,12 @@ export interface WatchlistEntry {
    * Stored sparsely — missing ticker means weight 0.
    */
   weights?: Record<string, number>;
+  /**
+   * Optional total portfolio value in USD. Combined with weights and
+   * the per-position dividend yield, lets us project an annual dividend
+   * income figure. Untouched if user hasn't set it.
+   */
+  portfolioTotal?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -104,7 +110,12 @@ export async function getWatchlist(uid: string, wid: string): Promise<WatchlistE
 export async function upsertWatchlist(
   uid: string,
   wid: string,
-  data: { name: string; tickers: string[]; weights?: Record<string, number> },
+  data: {
+    name: string;
+    tickers: string[];
+    weights?: Record<string, number>;
+    portfolioTotal?: number;
+  },
 ): Promise<void> {
   const { db } = getAdmin();
   if (!db) throw new Error("Firebase admin not configured");
@@ -119,10 +130,15 @@ export async function upsertWatchlist(
       if (typeof w === "number" && w > 0) cleanedWeights[t] = w;
     }
   }
+  const cleanedTotal =
+    typeof data.portfolioTotal === "number" && data.portfolioTotal > 0
+      ? data.portfolioTotal
+      : null;
   const payload = {
     name: data.name,
     tickers: data.tickers,
     weights: cleanedWeights,
+    portfolioTotal: cleanedTotal,
   };
   if (existing.exists) {
     await ref.update({ ...payload, updatedAt: now });

@@ -36,6 +36,7 @@ export async function PUT(
     name?: string;
     tickers?: string[];
     weights?: Record<string, number>;
+    portfolioTotal?: number;
   };
   if (!body.name || !Array.isArray(body.tickers)) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
@@ -44,6 +45,7 @@ export async function PUT(
     name: body.name,
     tickers: body.tickers.map((t) => t.toUpperCase()),
     weights: body.weights,
+    portfolioTotal: body.portfolioTotal,
   });
   return NextResponse.json({ ok: true });
 }
