@@ -6,6 +6,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  formatRelativeTime,
+  formatScoreContinuous,
+  scoreColorClass,
+} from "@/lib/format";
 
 type Signal = "ALL" | "BUY" | "HOLD" | "SELL";
 
@@ -58,7 +63,12 @@ export function VerdictFilter() {
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-h2 text-h2 text-slate-100">Engine signals</h2>
+        <h2
+          className="font-h2 text-h2 text-slate-100"
+          title="Distribution of cached engine verdicts. Score ≥ +0.30 → BUY · ≤ −0.20 → SELL · else HOLD. Synthesis is a confidence-weighted average across 9 fundamental models, grouped into Quality / Growth / Valuation / Sustainability pillars."
+        >
+          Engine signals
+        </h2>
         <select
           value={signal}
           onChange={(e) => setSignal(e.target.value as Signal)}
@@ -123,29 +133,32 @@ export function VerdictFilter() {
               <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">
                 Price
               </th>
-              <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest text-right">
+              <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest">
                 Last run
+              </th>
+              <th className="px-gutter py-3 font-label-caps text-[10px] text-slate-400 uppercase tracking-widest text-right">
+                Action
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1F2937]">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-gutter py-6 text-center text-on-surface-variant text-sm">
+                <td colSpan={7} className="px-gutter py-6 text-center text-on-surface-variant text-sm">
                   Loading…
                 </td>
               </tr>
             )}
             {error && (
               <tr>
-                <td colSpan={6} className="px-gutter py-6 text-center text-error text-sm">
+                <td colSpan={7} className="px-gutter py-6 text-center text-error text-sm">
                   {error}
                 </td>
               </tr>
             )}
             {!loading && !error && data && data.verdicts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-gutter py-6 text-center text-on-surface-variant text-sm">
+                <td colSpan={7} className="px-gutter py-6 text-center text-on-surface-variant text-sm">
                   {signal === "ALL"
                     ? "No verdicts cached yet. Use \"+ Add stocks\" above to run your first."
                     : `No ${signal} verdicts in the cache. Run more analyses or change the filter.`}
@@ -179,12 +192,14 @@ export function VerdictFilter() {
                       {row.verdict}
                     </span>
                   </td>
-                  <td className="px-gutter py-3 font-data-md text-data-md">
-                    {row.totalScore >= 0 ? "+" : ""}
-                    {row.totalScore}
+                  <td className={"px-gutter py-3 font-data-md text-data-md " + scoreColorClass(row.totalScore)}>
+                    {formatScoreContinuous(row.totalScore)}
                   </td>
                   <td className="px-gutter py-3 font-data-md text-data-md text-on-surface-variant">
                     {row.price != null ? `$${row.price.toFixed(2)}` : "—"}
+                  </td>
+                  <td className="px-gutter py-3 font-data-sm text-on-surface-variant text-xs">
+                    {formatRelativeTime(row.cachedAt)}
                   </td>
                   <td className="px-gutter py-3 text-right">
                     <Link

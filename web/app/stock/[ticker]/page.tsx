@@ -9,11 +9,29 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import type { ModelResult, PillarResult, VerdictDoc } from "@/lib/analysis/types";
-import { formatNumber, formatUSD } from "@/lib/format";
+import {
+  formatNumber,
+  formatRelativeTime,
+  formatScoreContinuous,
+  formatUSD,
+  scoreColorClass,
+} from "@/lib/format";
 
-function formatContinuousScore(n: number): string {
-  if (n >= 0) return `+${n.toFixed(2)}`;
-  return n.toFixed(2);
+const formatContinuousScore = formatScoreContinuous;
+
+function pillarTooltip(pillar: string): string {
+  switch (pillar) {
+    case "Quality":
+      return "Capital efficiency, earnings quality, margin trend. Models: Piotroski F-Score, ROIC vs WACC, Margin Trend.";
+    case "Growth":
+      return "Revenue, EPS, FCF compound growth + quarterly trend. Models: Multi-Year CAGR, Quarterly Trend.";
+    case "Valuation":
+      return "Is the price fair? Models: FCF Yield, Earnings Yield vs Treasury, Graham Number.";
+    case "Sustainability":
+      return "Can the business survive a recession? Models: Debt sustainability (NetDebt/OCF, Interest Coverage, D/E).";
+    default:
+      return "";
+  }
 }
 
 export default function VerdictPage() {
@@ -190,6 +208,13 @@ function VerdictView({
                 "px-6 py-2 rounded font-bold text-lg tracking-widest " +
                 verdictPillClasses(verdict.verdict)
               }
+              title={
+                verdict.verdict === "BUY"
+                  ? "Total weighted score ≥ +0.30 across 4 fundamental pillars. Engine sees genuine edge."
+                  : verdict.verdict === "SELL"
+                    ? "Total weighted score ≤ −0.20. Engine sees more headwinds than tailwinds."
+                    : "Total score between −0.20 and +0.30. Mixed or neutral signals."
+              }
             >
               {verdict.verdict}
             </div>
@@ -297,12 +322,7 @@ function PillarScorecard({
   pillars: PillarResult[];
   totalScore: number;
 }) {
-  const totalColor =
-    totalScore > 0.1
-      ? "text-secondary"
-      : totalScore < -0.1
-        ? "text-tertiary"
-        : "text-on-surface";
+  const totalColor = scoreColorClass(totalScore);
   return (
     <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
       <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant flex justify-between items-center">
@@ -324,14 +344,16 @@ function PillarScorecard({
         <tbody className="font-data-md text-data-md">
           {pillars.map((p) => (
             <tr key={p.pillar} className="border-b border-outline-variant last:border-b-0">
-              <td className="p-md font-semibold">{p.pillar}</td>
-              <td className={"p-md " + (p.score > 0.1 ? "text-secondary" : p.score < -0.1 ? "text-tertiary" : "text-on-surface-variant")}>
+              <td className="p-md font-semibold" title={pillarTooltip(p.pillar)}>
+                {p.pillar}
+              </td>
+              <td className={"p-md " + scoreColorClass(p.score)}>
                 {formatContinuousScore(p.score)}
               </td>
               <td className="p-md text-on-surface-variant">
                 {(p.pillarWeight * 100).toFixed(0)}%
               </td>
-              <td className={"p-md " + (p.contribution > 0 ? "text-secondary" : p.contribution < 0 ? "text-tertiary" : "text-on-surface-variant")}>
+              <td className={"p-md " + scoreColorClass(p.contribution)}>
                 {formatContinuousScore(p.contribution)}
               </td>
               <td className="p-md text-on-surface-variant">{p.modelCount}</td>
@@ -353,12 +375,7 @@ function ModelCard({ model, cik }: { model: ModelResult; cik: string }) {
       : typeof (model as unknown as { subScore?: number }).subScore === "number"
         ? (model as unknown as { subScore: number }).subScore / 2
         : 0;
-  const colorClass =
-    score > 0.1
-      ? "text-secondary"
-      : score < -0.1
-        ? "text-tertiary"
-        : "text-on-surface-variant";
+  const colorClass = scoreColorClass(score);
   const lowConfidence = (model.confidence ?? 1) < 0.3;
 
   return (

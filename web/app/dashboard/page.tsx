@@ -16,6 +16,11 @@ import { AppShell } from "@/components/app-shell";
 import { StockPickerDialog } from "@/components/stock-picker-dialog";
 import { VerdictFilter } from "@/components/verdict-filter";
 import { useAuth } from "@/lib/firebase/auth-context";
+import {
+  formatRelativeTime,
+  formatScoreContinuous,
+  scoreColorClass,
+} from "@/lib/format";
 
 interface RecentAnalysis {
   ticker: string;
@@ -182,9 +187,8 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-body-sm text-on-surface-variant mb-4">
                     Engine total score:{" "}
-                    <span className="font-data-md">
-                      {r.totalScore >= 0 ? "+" : ""}
-                      {r.totalScore}
+                    <span className={"font-data-md " + scoreColorClass(r.totalScore)}>
+                      {formatScoreContinuous(r.totalScore)}
                     </span>
                   </p>
                   <div className="flex items-center justify-between pt-4 border-t border-[#1F2937]">
@@ -252,7 +256,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-h2 text-h2 text-slate-100">Recent Analyses</h2>
               <span className="text-xs text-slate-500">
-                {recents.length === 0 ? "no runs yet" : `last run: ${new Date(recents[0]!.ts).toLocaleString()}`}
+                {recents.length === 0 ? "no runs yet" : `last run: ${formatRelativeTime(recents[0]!.ts)}`}
               </span>
             </div>
             <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
@@ -312,9 +316,8 @@ export default function DashboardPage() {
                           {r.verdict}
                         </span>
                       </td>
-                      <td className="px-gutter py-3 font-data-md text-data-md">
-                        {r.totalScore >= 0 ? "+" : ""}
-                        {r.totalScore}
+                      <td className={"px-gutter py-3 font-data-md text-data-md " + scoreColorClass(r.totalScore)}>
+                        {formatScoreContinuous(r.totalScore)}
                       </td>
                       <td className="px-gutter py-3">
                         <Link

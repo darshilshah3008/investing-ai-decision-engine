@@ -9,6 +9,11 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/lib/firebase/auth-context";
 import type { Verdict } from "@/lib/analysis/types";
+import {
+  formatRelativeTime,
+  formatScoreContinuous,
+  scoreColorClass,
+} from "@/lib/format";
 
 type Signal = "ALL" | "BUY" | "HOLD" | "SELL";
 
@@ -241,9 +246,8 @@ export default function UniversePage() {
                         {r.verdict}
                       </span>
                     </td>
-                    <td className="px-gutter py-3 font-data-md text-data-md">
-                      {r.totalScore >= 0 ? "+" : ""}
-                      {r.totalScore}
+                    <td className={"px-gutter py-3 font-data-md text-data-md " + scoreColorClass(r.totalScore)}>
+                      {formatScoreContinuous(r.totalScore)}
                     </td>
                     <td className="px-gutter py-3 font-data-md text-data-md text-on-surface-variant">
                       {r.price != null ? `$${r.price.toFixed(2)}` : "—"}
@@ -266,7 +270,10 @@ export default function UniversePage() {
         </div>
 
         <p className="mt-4 text-xs text-on-surface-variant text-center">
-          Showing top {data?.rows.length ?? 0} by score. Universe refreshed weekly via background job.
+          Showing top {data?.rows.length ?? 0} by score · Universe refreshed weekly via background job
+          {data?.rows[0]?.computedAt
+            ? ` · last refresh ${formatRelativeTime(data.rows[0].computedAt)}`
+            : ""}
         </p>
       </div>
     </AppShell>

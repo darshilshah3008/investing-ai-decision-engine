@@ -13,6 +13,11 @@ import { AppShell } from "@/components/app-shell";
 import { StockPickerDialog } from "@/components/stock-picker-dialog";
 import { useAuth } from "@/lib/firebase/auth-context";
 import type { VerdictDoc } from "@/lib/analysis/types";
+import {
+  formatRelativeTime,
+  formatScoreContinuous,
+  scoreColorClass,
+} from "@/lib/format";
 
 interface WatchlistEntry {
   id: string;
@@ -383,7 +388,16 @@ export default function WatchlistDetailPage() {
             </span>
             <h1 className="font-h1 text-h1 text-on-surface">{wl.name}</h1>
             <p className="text-on-surface-variant text-sm mt-1">
-              {wl.tickers.length} stocks · last updated just now
+              {wl.tickers.length} stocks
+              {Object.values(rows).some((r) => r.verdict)
+                ? ` · last data refresh ${formatRelativeTime(
+                    Math.max(
+                      ...Object.values(rows)
+                        .map((r) => (r.verdict ? Date.parse(r.verdict.asOf) : 0))
+                        .filter((t) => t > 0),
+                    ),
+                  )}`
+                : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -543,11 +557,8 @@ export default function WatchlistDetailPage() {
                             <span className="text-xs text-on-surface-variant">—</span>
                           )}
                         </td>
-                        <td className="px-gutter py-3 font-data-md text-data-md">
-                          {row?.verdict
-                            ? (row.verdict.totalScore >= 0 ? "+" : "") +
-                              row.verdict.totalScore.toFixed(2)
-                            : "—"}
+                        <td className={"px-gutter py-3 font-data-md text-data-md " + (row?.verdict ? scoreColorClass(row.verdict.totalScore) : "")}>
+                          {row?.verdict ? formatScoreContinuous(row.verdict.totalScore) : "—"}
                         </td>
                         <td className="px-gutter py-3 font-data-md text-data-md text-on-surface-variant">
                           {ms?.price != null ? `$${ms.price.toFixed(2)}` : "—"}
