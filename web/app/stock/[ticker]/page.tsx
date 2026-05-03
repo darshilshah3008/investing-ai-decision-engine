@@ -8,8 +8,13 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import type { ModelResult, VerdictDoc } from "@/lib/analysis/types";
-import { formatNumber, formatScore, formatUSD } from "@/lib/format";
+import type { ModelResult, PillarResult, VerdictDoc } from "@/lib/analysis/types";
+import { formatNumber, formatUSD } from "@/lib/format";
+
+function formatContinuousScore(n: number): string {
+  if (n >= 0) return `+${n.toFixed(2)}`;
+  return n.toFixed(2);
+}
 
 export default function VerdictPage() {
   const params = useParams<{ ticker: string }>();
@@ -190,7 +195,7 @@ function VerdictView({
             </div>
             <div className="text-right">
               <div className="font-data-lg text-data-lg text-secondary">
-                {formatScore(verdict.totalScore)}
+                {formatContinuousScore(verdict.totalScore)}
               </div>
               <div className="font-label-caps text-label-caps text-on-surface-variant">
                 CONFIDENCE:{" "}
@@ -254,8 +259,11 @@ function VerdictView({
         </p>
       </section>
 
+      {/* Pillar Scorecard */}
+      <PillarScorecard pillars={verdict.pillars} totalScore={verdict.totalScore} />
+
       {/* Per-model cards */}
-      <div className="grid grid-cols-1 gap-lg mb-xl">
+      <div className="grid grid-cols-1 gap-lg mb-xl mt-xl">
         {verdict.models.map((m, i) => (
           <ModelCard key={i} model={m} cik={verdict.cik} />
         ))}
@@ -280,15 +288,69 @@ function VerdictView({
   );
 }
 
-function ModelCard({ model, cik }: { model: ModelResult; cik: string }) {
-  const [expanded, setExpanded] = useState(true);
-  const score = model.subScore;
-  const colorClass =
-    score > 0
+function PillarScorecard({
+  pillars,
+  totalScore,
+}: {
+  pillars: PillarResult[];
+  totalScore: number;
+}) {
+  const totalColor =
+    totalScore > 0.1
       ? "text-secondary"
-      : score < 0
+      : totalScore < -0.1
+        ? "text-tertiary"
+        : "text-on-surface";
+  return (
+    <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
+      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant flex justify-between items-center">
+        <h3 className="font-label-caps text-label-caps">PILLAR SCORECARD</h3>
+        <span className={"font-data-md text-data-md " + totalColor}>
+          Total {formatContinuousScore(totalScore)}
+        </span>
+      </div>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-outline-variant bg-surface-container-low">
+            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">PILLAR</th>
+            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">SCORE</th>
+            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">WEIGHT</th>
+            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">CONTRIBUTION</th>
+            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">MODELS</th>
+          </tr>
+        </thead>
+        <tbody className="font-data-md text-data-md">
+          {pillars.map((p) => (
+            <tr key={p.pillar} className="border-b border-outline-variant last:border-b-0">
+              <td className="p-md font-semibold">{p.pillar}</td>
+              <td className={"p-md " + (p.score > 0.1 ? "text-secondary" : p.score < -0.1 ? "text-tertiary" : "text-on-surface-variant")}>
+                {formatContinuousScore(p.score)}
+              </td>
+              <td className="p-md text-on-surface-variant">
+                {(p.pillarWeight * 100).toFixed(0)}%
+              </td>
+              <td className={"p-md " + (p.contribution > 0 ? "text-secondary" : p.contribution < 0 ? "text-tertiary" : "text-on-surface-variant")}>
+                {formatContinuousScore(p.contribution)}
+              </td>
+              <td className="p-md text-on-surface-variant">{p.modelCount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ModelCard({ model, cik }: { model: ModelResult; cik: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const score = model.score;
+  const colorClass =
+    score > 0.1
+      ? "text-secondary"
+      : score < -0.1
         ? "text-tertiary"
         : "text-on-surface-variant";
+  const lowConfidence = model.confidence < 0.3;
 
   return (
     <div className="bg-surface-container border border-primary/30 rounded-lg overflow-hidden ring-1 ring-primary/20">
@@ -303,8 +365,16 @@ function ModelCard({ model, cik }: { model: ModelResult; cik: string }) {
           </h3>
         </div>
         <div className="flex items-center gap-3">
+          {lowConfidence && (
+            <span
+              className="text-[9px] uppercase tracking-wider text-on-surface-variant border border-outline-variant rounded px-1.5 py-0.5"
+              title={`Low confidence (${(model.confidence * 100).toFixed(0)}%) — model has limited inputs for this ticker`}
+            >
+              Low conf
+            </span>
+          )}
           <span className={"font-data-md text-data-md " + colorClass}>
-            Score {formatScore(score)}
+            {formatContinuousScore(score)}
           </span>
           <span className="material-symbols-outlined text-on-surface-variant">
             {expanded ? "expand_less" : "expand_more"}
@@ -461,7 +531,7 @@ function SensitivityCard({
             <tr key={i} className="border-b border-outline-variant last:border-b-0">
               <td className="p-md">{s.scenario}</td>
               <td className="p-md font-data-md text-on-surface-variant">
-                {formatScore(s.effect)}
+                {formatContinuousScore(s.effect)}
               </td>
               <td className="p-md">
                 <span

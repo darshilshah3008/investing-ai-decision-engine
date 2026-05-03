@@ -105,15 +105,45 @@ export const TAGS = {
     "Revenues",
     "RevenueFromContractWithCustomerExcludingAssessedTax",
     "SalesRevenueNet",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
   ],
+  costOfRevenue: [
+    "CostOfRevenue",
+    "CostOfGoodsAndServicesSold",
+    "CostOfGoodsSold",
+  ],
+  grossProfit: ["GrossProfit"],
+  operatingIncome: ["OperatingIncomeLoss"],
   netIncome: ["NetIncomeLoss", "ProfitLoss"],
   operatingCashFlow: [
     "NetCashProvidedByOperatingActivities",
     "NetCashProvidedByUsedInOperatingActivities",
   ],
+  capitalExpenditures: [
+    "PaymentsToAcquirePropertyPlantAndEquipment",
+    "PaymentsForPropertyPlantAndEquipment",
+  ],
   longTermDebt: [
     "LongTermDebtNoncurrent",
     "LongTermDebt",
+  ],
+  shortTermDebt: [
+    "LongTermDebtCurrent",
+    "DebtCurrent",
+  ],
+  cashAndEquivalents: [
+    "CashAndCashEquivalentsAtCarryingValue",
+    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+    "Cash",
+  ],
+  totalAssets: ["Assets"],
+  totalLiabilities: ["Liabilities"],
+  interestExpense: [
+    "InterestExpense",
+    "InterestExpenseDebt",
+  ],
+  incomeTaxExpense: [
+    "IncomeTaxExpenseBenefit",
   ],
   sharesOutstanding: [
     "CommonStockSharesOutstanding",
