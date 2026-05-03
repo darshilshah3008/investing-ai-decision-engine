@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Firestore security rules.
+// - Verdicts are READ-ONLY public (cached engine output, safe to share).
+// - Tickers are READ-ONLY public (SEC ticker master cache).
+// - Watchlists belong to the owning user.
+// - Per-user state lives under users/{uid}.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // SEC ticker master cache — anyone can read, only server (admin SDK) writes.
+    match /tickers/{tickerId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Pre-computed verdicts cache — anyone can read, only server writes.
+    match /verdicts/{verdictId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Per-user document and subcollections.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /watchlists/{watchlistId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

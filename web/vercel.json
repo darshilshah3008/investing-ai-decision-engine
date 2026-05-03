@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "functions": {
+    "app/api/verdict/[ticker]/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/tickers/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
