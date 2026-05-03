@@ -7,9 +7,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/firebase/auth-context";
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  icon: string;
+  label: string;
+  proOnly?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", icon: "dashboard", label: "Terminal" },
   { href: "/watchlist", icon: "list_alt", label: "Watchlists" },
+  { href: "/universe", icon: "public", label: "Universe", proOnly: true },
   { href: "/models", icon: "analytics", label: "Models" },
   { href: "/research", icon: "biotech", label: "Research Labs" },
   { href: "/settings", icon: "settings", label: "Settings" },
@@ -18,7 +26,8 @@ const NAV_ITEMS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, tier } = useAuth();
+  const isPro = tier === "pro";
 
   return (
     <>
@@ -32,6 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+            const locked = item.proOnly && !isPro;
             return (
               <Link
                 key={item.href}
@@ -43,7 +53,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }
               >
                 <span className="material-symbols-outlined">{item.icon}</span>
-                <span className="font-sans text-sm tracking-tight font-medium">{item.label}</span>
+                <span className="font-sans text-sm tracking-tight font-medium flex-1">{item.label}</span>
+                {locked && (
+                  <span
+                    className="material-symbols-outlined text-[14px] text-slate-600"
+                    title="Pro tier only"
+                  >
+                    lock
+                  </span>
+                )}
+                {item.proOnly && isPro && (
+                  <span className="text-[8px] font-bold uppercase tracking-tighter text-secondary bg-secondary/15 px-1 rounded">
+                    Pro
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -62,7 +85,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <p className="text-xs font-bold text-slate-100 truncate">
                 {user?.displayName ?? user?.email ?? "Guest"}
               </p>
-              <p className="text-[10px] text-indigo-400">Pro Plan Active</p>
+              <p className="text-[10px] text-indigo-400">
+                {isPro ? "Pro Plan Active" : "Free Plan"}
+              </p>
             </div>
             {user && (
               <button
