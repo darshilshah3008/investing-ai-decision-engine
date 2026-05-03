@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { StockPickerDialog } from "@/components/stock-picker-dialog";
+import { VerdictFilter } from "@/components/verdict-filter";
 import { useAuth } from "@/lib/firebase/auth-context";
 
 interface RecentAnalysis {
@@ -122,6 +123,9 @@ export default function DashboardPage() {
             Add stocks
           </button>
         </div>
+
+        {/* Engine signals — filter dropdown + counter cards backed by Firestore verdicts cache */}
+        <VerdictFilter />
 
         {/* Verdicts that changed — uses recents */}
         <section className="mb-10">

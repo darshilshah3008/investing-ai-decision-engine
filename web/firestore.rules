@@ -20,13 +20,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Per-user document and subcollections.
+    // Per-user document.
+    // - User can READ their own profile (to see their tier).
+    // - User CANNOT write — only the server admin SDK can mutate the user
+    //   doc, so the client can never self-promote to a paid tier.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
 
       match /watchlists/{watchlistId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+    }
+
+    // Pre-computed universe table — read open to anyone, write server-only.
+    // Used by the Pro-tier Universe page (a paid feature client-side, but
+    // the data itself is non-secret cached engine output).
+    match /universe/{ticker} {
+      allow read: if true;
+      allow write: if false;
     }
   }
 }
