@@ -366,9 +366,21 @@ export default function WatchlistDetailPage() {
           </div>
         ) : (
           <>
-            {/* Portfolio composition panel */}
+            {/* Portfolio composition panel (donut chart) */}
             {composition && (
               <CompositionPanel
+                buckets={composition.buckets}
+                totalWeight={composition.totalWeight}
+                portfolioDivYield={composition.portfolioDivYield}
+              />
+            )}
+
+            {/* Personalized suggestions */}
+            {composition && (
+              <SuggestionsPanel
+                tickers={wl.tickers}
+                rows={rows}
+                weightDraft={weightDraft}
                 buckets={composition.buckets}
                 totalWeight={composition.totalWeight}
                 portfolioDivYield={composition.portfolioDivYield}
@@ -541,6 +553,74 @@ const BUCKET_BAR_COLORS: Record<CapBucket, string> = {
   "—": "bg-surface-container-highest",
 };
 
+const BUCKET_HEX: Record<CapBucket, string> = {
+  Mega: "#c0c1ff",     // primary
+  Large: "#4de082",    // secondary
+  Mid: "#fbbf24",      // amber-400
+  Small: "#ffb3b0",    // tertiary
+  Micro: "#908fa0",    // outline
+  "—": "#2c3543",      // surface-container-highest
+};
+
+// SVG donut chart — pure CSS, no chart library.
+// Each slice is an arc on a circle of radius 40. We draw each slice
+// with its own <circle> using stroke-dasharray.
+function DonutChart({
+  slices,
+  size = 220,
+  centerLabel,
+  centerSubLabel,
+}: {
+  slices: { label: string; value: number; color: string }[];
+  size?: number;
+  centerLabel: string;
+  centerSubLabel?: string;
+}) {
+  const total = slices.reduce((s, x) => s + x.value, 0);
+  if (total <= 0) return null;
+  const r = 40;
+  const circ = 2 * Math.PI * r;
+
+  let offset = 0;
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg viewBox="0 0 100 100" width={size} height={size} className="-rotate-90">
+        {/* Background ring */}
+        <circle cx="50" cy="50" r={r} fill="transparent" stroke="#16202d" strokeWidth="14" />
+        {slices.map((s, i) => {
+          const pct = s.value / total;
+          const dash = pct * circ;
+          const el = (
+            <circle
+              key={i}
+              cx="50"
+              cy="50"
+              r={r}
+              fill="transparent"
+              stroke={s.color}
+              strokeWidth="14"
+              strokeDasharray={`${dash} ${circ - dash}`}
+              strokeDashoffset={-offset}
+            />
+          );
+          offset += dash;
+          return el;
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div className="font-display-lg text-display-lg text-on-surface leading-none">
+          {centerLabel}
+        </div>
+        {centerSubLabel && (
+          <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">
+            {centerSubLabel}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CompositionPanel({
   buckets,
   totalWeight,
@@ -563,6 +643,12 @@ function CompositionPanel({
         : totalWeight > 100
           ? { label: `Over-allocated (+${(totalWeight - 100).toFixed(1)}%)`, color: "text-tertiary" }
           : { label: `${(100 - totalWeight).toFixed(1)}% unallocated`, color: "text-amber-300" };
+
+  const donutSlices = allocated.map((x) => ({
+    label: `${x.b} cap`,
+    value: x.weight,
+    color: BUCKET_HEX[x.b],
+  }));
 
   return (
     <div className="bg-surface-container border border-outline-variant rounded-xl mb-6 overflow-hidden">
@@ -589,49 +675,54 @@ function CompositionPanel({
 
       <div className="p-md">
         {totalWeight === 0 ? (
-          <p className="text-sm text-on-surface-variant text-center py-3">
-            Set weight % on each row below to see your cap-size distribution and
-            portfolio dividend yield.
+          <p className="text-sm text-on-surface-variant text-center py-6">
+            Set weight % on each row below to see your cap-size distribution as a
+            donut chart, plus portfolio dividend yield.
           </p>
         ) : (
-          <>
-            {/* Stacked bar */}
-            <div className="h-3 w-full bg-surface-container-lowest rounded-full overflow-hidden flex mb-4">
-              {ordered.map((b) => {
-                const pct = totalWeight > 0 ? (buckets[b].weight / totalWeight) * 100 : 0;
-                if (pct === 0) return null;
-                return (
-                  <div
-                    key={b}
-                    className={BUCKET_BAR_COLORS[b]}
-                    style={{ width: `${pct}%` }}
-                    title={`${b}: ${buckets[b].weight.toFixed(1)}% (${pct.toFixed(0)}% of allocated)`}
-                  />
-                );
-              })}
+          <div className="flex flex-col lg:flex-row gap-8 items-center">
+            {/* Donut */}
+            <div className="flex-shrink-0">
+              <DonutChart
+                slices={donutSlices}
+                size={220}
+                centerLabel={`${totalWeight.toFixed(0)}%`}
+                centerSubLabel="Allocated"
+              />
             </div>
 
-            {/* Per-bucket detail */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Legend / per-bucket breakdown */}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 w-full">
               {allocated.map((x) => {
-                const pctOfPortfolio = totalWeight > 0 ? (x.weight / totalWeight) * 100 : 0;
+                const pctOfPortfolio =
+                  totalWeight > 0 ? (x.weight / totalWeight) * 100 : 0;
                 return (
                   <div
                     key={x.b}
                     className="bg-surface-container-low border border-outline-variant rounded-lg p-3"
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={"w-2 h-2 rounded-full " + BUCKET_BAR_COLORS[x.b]} />
-                      <span className="font-label-caps text-on-surface">{x.b} cap</span>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: BUCKET_HEX[x.b] }}
+                        />
+                        <span className="font-label-caps text-on-surface">
+                          {x.b} cap
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant">
+                        {x.tickers.length} stock{x.tickers.length === 1 ? "" : "s"}
+                      </span>
                     </div>
                     <div className="font-data-lg text-data-lg text-on-surface mb-1">
                       {x.weight.toFixed(1)}%
+                      <span className="font-body-sm text-xs text-on-surface-variant ml-2">
+                        ({pctOfPortfolio.toFixed(0)}% of alloc)
+                      </span>
                     </div>
-                    <div className="text-[10px] text-on-surface-variant">
-                      {pctOfPortfolio.toFixed(0)}% of allocated · {x.tickers.length} stock{x.tickers.length === 1 ? "" : "s"}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {x.tickers.slice(0, 5).map((t) => (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {x.tickers.slice(0, 6).map((t) => (
                         <span
                           key={t}
                           className="text-[9px] font-data-sm bg-surface-container-highest px-1.5 py-0.5 rounded text-slate-300"
@@ -639,9 +730,9 @@ function CompositionPanel({
                           {t}
                         </span>
                       ))}
-                      {x.tickers.length > 5 && (
+                      {x.tickers.length > 6 && (
                         <span className="text-[9px] text-on-surface-variant">
-                          +{x.tickers.length - 5}
+                          +{x.tickers.length - 6}
                         </span>
                       )}
                     </div>
@@ -649,8 +740,398 @@ function CompositionPanel({
                 );
               })}
             </div>
-          </>
+          </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Personalized suggestions
+// ────────────────────────────────────────────────────────────────────
+
+interface Suggestion {
+  severity: "good" | "info" | "warn" | "alert";
+  title: string;
+  body: string;
+}
+
+function buildSuggestions(args: {
+  tickers: string[];
+  rows: Record<string, RowState>;
+  weights: Record<string, number>;
+  buckets: Record<CapBucket, { weight: number; tickers: string[] }>;
+  totalWeight: number;
+  portfolioDivYield: number | null;
+}): Suggestion[] {
+  const out: Suggestion[] = [];
+  const { tickers, rows, weights, buckets, totalWeight, portfolioDivYield } = args;
+
+  // ── 0. Empty state ──────────────────────────────────────────────
+  if (totalWeight === 0) {
+    out.push({
+      severity: "info",
+      title: "Add weights to unlock personalized analysis",
+      body: "Type a percentage into each Weight % cell and click Save. The engine will then analyze concentration risk, sector exposure, conviction-vs-weight mismatches, and pillar gaps — and surface specific rebalance ideas.",
+    });
+    return out;
+  }
+
+  // Holdings with weight + engine output joined.
+  // Includes pillars + sector data when available.
+  const holdings = tickers
+    .map((t) => {
+      const verdict = rows[t]?.verdict;
+      return {
+        ticker: t,
+        companyName: verdict?.companyName ?? t,
+        weight: weights[t] ?? 0,
+        verdict: verdict?.verdict ?? null,
+        score: verdict?.totalScore ?? 0,
+        pillars: verdict?.pillars ?? [],
+        sector: verdict?.marketSnapshot?.sector ?? null,
+        beta: verdict?.marketSnapshot?.beta ?? null,
+      };
+    })
+    .filter((h) => h.weight > 0);
+
+  // ── 1. Allocation balance ──────────────────────────────────────
+  if (Math.abs(totalWeight - 100) > 0.5) {
+    out.push({
+      severity: totalWeight > 100 ? "alert" : "warn",
+      title:
+        totalWeight > 100
+          ? `Over-allocated: ${(totalWeight - 100).toFixed(1)}% above 100%`
+          : `${(100 - totalWeight).toFixed(1)}% sits in cash / unallocated`,
+      body:
+        totalWeight > 100
+          ? "Total exceeds 100%. Trim or rescale — analysis below treats your weights at face value, so over-allocation will overstate risk."
+          : `Holding ${(100 - totalWeight).toFixed(1)}% in cash is reasonable as dry powder, but at current short-term Treasury yields (~4%), idle cash earns more than many low-conviction equity positions. Either deploy it or accept the drag.`,
+    });
+  }
+
+  // ── 2. Score-weighted portfolio assessment (the headline metric) ─
+  const weightedScoreSum = holdings.reduce((s, h) => s + h.score * h.weight, 0);
+  const weightedScore = totalWeight > 0 ? weightedScoreSum / totalWeight : 0;
+  out.push({
+    severity:
+      weightedScore > 0.20 ? "good" :
+      weightedScore < -0.10 ? "alert" :
+      weightedScore > 0 ? "info" : "warn",
+    title: `Portfolio weighted score: ${weightedScore >= 0 ? "+" : ""}${weightedScore.toFixed(2)} ${
+      weightedScore > 0.20 ? "— strong" :
+      weightedScore < -0.10 ? "— weak" : "— neutral"
+    }`,
+    body:
+      weightedScore > 0.20
+        ? "Your weighted-average engine score is meaningfully positive. Your capital is concentrated in higher-scored names. Continue holding and let compounders compound — frequent trading would erode this edge."
+        : weightedScore > 0
+          ? "Slight positive tilt. Most holdings score above neutral, but there's room to rotate weight away from the lower-scored positions toward the highest-conviction ones."
+          : weightedScore < -0.10
+            ? "Your weighted score is negative — meaning the engine sees more headwinds than tailwinds across your holdings as a whole. Look at the Risks section on each position before adding capital."
+            : "Roughly neutral. Engine signals are mixed across holdings. The 'Conviction vs weight' mismatches below show where rebalancing would lift the score most.",
+  });
+
+  // ── 3. Portfolio-level pillar aggregation ───────────────────────
+  // Weighted average of each pillar's score across holdings.
+  const pillarTotals: Record<string, { sum: number; weight: number }> = {
+    Quality: { sum: 0, weight: 0 },
+    Growth: { sum: 0, weight: 0 },
+    Valuation: { sum: 0, weight: 0 },
+    Sustainability: { sum: 0, weight: 0 },
+  };
+  for (const h of holdings) {
+    for (const p of h.pillars) {
+      const slot = pillarTotals[p.pillar];
+      if (slot) {
+        slot.sum += p.score * h.weight;
+        slot.weight += h.weight;
+      }
+    }
+  }
+  const pillarScores = Object.entries(pillarTotals)
+    .filter(([, v]) => v.weight > 0)
+    .map(([k, v]) => ({ pillar: k, score: v.sum / v.weight }));
+  if (pillarScores.length === 4) {
+    const sorted = [...pillarScores].sort((a, b) => a.score - b.score);
+    const weakest = sorted[0];
+    const strongest = sorted[sorted.length - 1];
+    if (weakest.score < -0.10 || strongest.score > 0.30) {
+      out.push({
+        severity: weakest.score < -0.20 ? "warn" : "info",
+        title: `Pillar profile: strongest in ${strongest.pillar} (${strongest.score >= 0 ? "+" : ""}${strongest.score.toFixed(2)}), weakest in ${weakest.pillar} (${weakest.score >= 0 ? "+" : ""}${weakest.score.toFixed(2)})`,
+        body:
+          weakest.score < -0.10
+            ? `Your portfolio has a structural gap in ${weakest.pillar.toLowerCase()}. ` +
+              (weakest.pillar === "Valuation"
+                ? "Most of your holdings are trading at premium valuations. You're paying up for quality — fine if you're long-horizon, painful if multiples compress."
+                : weakest.pillar === "Sustainability"
+                  ? "Several of your holdings carry meaningful debt or weak interest coverage. A recession or rate spike would hurt them disproportionately."
+                  : weakest.pillar === "Growth"
+                    ? "Your holdings are mature businesses with limited revenue/FCF growth. Total return will lean on dividends and buybacks more than compounding."
+                    : "Quality scores (Piotroski, ROIC, margin trend) are weak across the portfolio. Earnings reliability is below average."
+              )
+            : `Engine sees genuine ${strongest.pillar.toLowerCase()} edge across your holdings. That's a durable competitive advantage if it persists.`,
+      });
+    }
+  }
+
+  // ── 4. Conviction vs weight mismatch ────────────────────────────
+  // Find positions where weight rank ≠ score rank — your money isn't
+  // in your highest-conviction names.
+  const byScore = [...holdings].sort((a, b) => b.score - a.score);
+  const byWeight = [...holdings].sort((a, b) => b.weight - a.weight);
+  if (holdings.length >= 4) {
+    const lowScoreHighWeight = holdings.filter(
+      (h) =>
+        h.score < 0 &&
+        byWeight.findIndex((x) => x.ticker === h.ticker) < 3,
+    );
+    const highScoreLowWeight = holdings.filter(
+      (h) =>
+        h.score > 0.3 &&
+        byWeight.findIndex((x) => x.ticker === h.ticker) >= holdings.length / 2,
+    );
+    if (lowScoreHighWeight.length > 0) {
+      const examples = lowScoreHighWeight
+        .map((h) => `${h.ticker} (${h.weight.toFixed(1)}% weight, ${h.score >= 0 ? "+" : ""}${h.score.toFixed(2)} score)`)
+        .join(", ");
+      out.push({
+        severity: "warn",
+        title: `Conviction-weight mismatch: top-weighted positions have weak scores`,
+        body: `Your money is concentrated in ${examples} — but the engine doesn't see strong fundamentals there. Either you have a thesis the math can't see (legitimate, but worth writing down), or the position deserves to be smaller. Consider trimming and redirecting to your highest-scored names.`,
+      });
+    }
+    if (highScoreLowWeight.length > 0 && holdings.length >= 6) {
+      const examples = highScoreLowWeight
+        .slice(0, 3)
+        .map((h) => `${h.ticker} (+${h.score.toFixed(2)} but only ${h.weight.toFixed(1)}%)`)
+        .join(", ");
+      out.push({
+        severity: "info",
+        title: `Highest-conviction names are under-weighted`,
+        body: `${examples}. The engine sees real edge in these names but they're small in your portfolio. Sizing up would lift weighted score — assuming your independent analysis agrees.`,
+      });
+    }
+  }
+
+  // ── 5. Specific rebalance suggestion ────────────────────────────
+  // The most actionable one: pick the most negative-score position
+  // with non-trivial weight, suggest trimming and rotating to the
+  // highest-score holding.
+  if (holdings.length >= 4 && byScore.length >= 2) {
+    const topGain = byScore[0];
+    const topDrag = byScore[byScore.length - 1];
+    if (topGain.score - topDrag.score > 0.4 && topDrag.weight >= 2) {
+      const trimAmount = Math.min(topDrag.weight * 0.5, 5);
+      const liftEstimate = (topGain.score - topDrag.score) * (trimAmount / 100);
+      out.push({
+        severity: "info",
+        title: `Rebalance idea: trim ${topDrag.ticker}, rotate into ${topGain.ticker}`,
+        body: `Moving ${trimAmount.toFixed(1)}% from ${topDrag.ticker} (${topDrag.score >= 0 ? "+" : ""}${topDrag.score.toFixed(2)}) into ${topGain.ticker} (+${topGain.score.toFixed(2)}) would lift your portfolio's weighted score by approximately +${liftEstimate.toFixed(3)}. This is mechanical math — verify the thesis on each before acting.`,
+      });
+    }
+  }
+
+  // ── 6. Single-position concentration ────────────────────────────
+  const sortedByWeight = [...holdings].sort((a, b) => b.weight - a.weight);
+  if (sortedByWeight.length > 0) {
+    const top = sortedByWeight[0];
+    const pctOfPortfolio = (top.weight / totalWeight) * 100;
+    if (pctOfPortfolio > 25) {
+      out.push({
+        severity: "warn",
+        title: `Heavy concentration in ${top.ticker} (${pctOfPortfolio.toFixed(0)}% of portfolio)`,
+        body: `A single-stock position above 25% means one earnings miss or accounting issue can move your whole portfolio 5-10% in a day. Diversified retail portfolios usually cap individual positions at 10-15% — even when conviction is high. ${top.score < 0 ? `Especially relevant here because ${top.ticker} has a negative engine score.` : ""}`,
+      });
+    }
+  }
+
+  // ── 7. Sector concentration ─────────────────────────────────────
+  const sectorBuckets: Record<string, { weight: number; tickers: string[] }> = {};
+  for (const h of holdings) {
+    if (!h.sector) continue;
+    if (!sectorBuckets[h.sector]) {
+      sectorBuckets[h.sector] = { weight: 0, tickers: [] };
+    }
+    sectorBuckets[h.sector].weight += h.weight;
+    sectorBuckets[h.sector].tickers.push(h.ticker);
+  }
+  const sectorEntries = Object.entries(sectorBuckets)
+    .map(([sec, v]) => ({ sector: sec, ...v, pct: (v.weight / totalWeight) * 100 }))
+    .sort((a, b) => b.weight - a.weight);
+  if (sectorEntries.length > 0 && sectorEntries[0].pct > 40) {
+    const top = sectorEntries[0];
+    out.push({
+      severity: top.pct > 60 ? "warn" : "info",
+      title: `${top.sector} concentration: ${top.pct.toFixed(0)}% of portfolio`,
+      body: `${top.tickers.join(", ")} all sit in ${top.sector}. Sector concentration above 40% means a single regulatory or macro event affects most of your portfolio at once. Consider whether holdings in adjacent sectors with similar fundamentals would smooth this out.`,
+    });
+  }
+
+  // ── 8. Cap-size diversification ─────────────────────────────────
+  const megaLargeWeight = buckets.Mega.weight + buckets.Large.weight;
+  const smallMicroWeight = buckets.Small.weight + buckets.Micro.weight;
+  const megaLargePct = (megaLargeWeight / totalWeight) * 100;
+  const smallMicroPct = (smallMicroWeight / totalWeight) * 100;
+  if (megaLargePct > 90 && tickers.length >= 5) {
+    out.push({
+      severity: "info",
+      title: `Mega/Large-cap dominant (${megaLargePct.toFixed(0)}% of portfolio)`,
+      body: "Mega/Large-cap exposure means lower volatility but historically lower long-run returns than mid/small. Adding 10-15% mid-cap exposure typically improves the risk/return ratio. Filter the Universe page (BUY + Mid-cap) for candidates.",
+    });
+  }
+  if (smallMicroPct > 30) {
+    out.push({
+      severity: "warn",
+      title: `Heavy small/micro cap (${smallMicroPct.toFixed(0)}% of portfolio)`,
+      body: "Small and micro caps can deliver outsized long-term returns but with 2-3x the volatility of large caps. Drawdowns of 50%+ are normal even for good companies. Make sure this is sized appropriately for your time horizon and ability to hold through turbulence.",
+    });
+  }
+
+  // ── 9. Verdict mix ──────────────────────────────────────────────
+  const sells = holdings.filter((h) => h.verdict === "SELL");
+  if (sells.length > 0) {
+    const total = sells.reduce((s, h) => s + h.weight, 0);
+    const totalPct = (total / totalWeight) * 100;
+    out.push({
+      severity: totalPct > 10 ? "alert" : "warn",
+      title: `${sells.length} position${sells.length === 1 ? "" : "s"} flagged SELL by the engine (${totalPct.toFixed(0)}% of portfolio)`,
+      body:
+        `Engine signals SELL on: ${sells.map((s) => `${s.ticker} (${s.score >= 0 ? "+" : ""}${s.score.toFixed(2)}, ${s.weight.toFixed(1)}%)`).join(", ")}. ` +
+        "These have the most negative weighted scores in your portfolio. Click 'View' on each row to see exactly which models are flagging concerns — sometimes it's noise (e.g., low confidence on missing data) and sometimes it's a real risk.",
+    });
+  }
+  const buys = holdings.filter((h) => h.verdict === "BUY");
+  if (buys.length >= 2) {
+    const top = [...buys].sort((a, b) => b.score - a.score).slice(0, 3);
+    out.push({
+      severity: "good",
+      title: `${buys.length} positions rated BUY (${((buys.reduce((s, h) => s + h.weight, 0) / totalWeight) * 100).toFixed(0)}% of portfolio)`,
+      body: `Highest-scoring: ${top.map((h) => `${h.ticker} (+${h.score.toFixed(2)})`).join(", ")}. Engine sees these as undervalued or compounding strongly relative to fundamentals — your money is sitting in good places for these.`,
+    });
+  }
+
+  // ── 10. Beta-weighted volatility ────────────────────────────────
+  const betaSamples = holdings.filter((h) => h.beta != null);
+  if (betaSamples.length >= 3) {
+    const totalBetaWeight = betaSamples.reduce((s, h) => s + h.weight, 0);
+    const portfolioBeta =
+      betaSamples.reduce((s, h) => s + (h.beta ?? 0) * h.weight, 0) /
+      totalBetaWeight;
+    if (portfolioBeta > 1.3) {
+      out.push({
+        severity: "info",
+        title: `Portfolio beta ≈ ${portfolioBeta.toFixed(2)} — high market sensitivity`,
+        body: `Your weighted beta is ${portfolioBeta.toFixed(2)} vs. market 1.0, meaning a 10% market drop would tend to drop your portfolio ${(portfolioBeta * 10).toFixed(0)}%. That's a feature in bull markets and a bug in bear ones. If you're nearing a goal where you can't afford a 30%+ drawdown, consider rotating some weight to lower-beta names (utilities, staples, healthcare).`,
+      });
+    } else if (portfolioBeta < 0.8) {
+      out.push({
+        severity: "info",
+        title: `Portfolio beta ≈ ${portfolioBeta.toFixed(2)} — defensive positioning`,
+        body: "Below-market beta means smoother rides but typically lower long-run returns vs. the index. Fine if capital preservation is the priority.",
+      });
+    }
+  }
+
+  // ── 11. Yield commentary ────────────────────────────────────────
+  if (portfolioDivYield != null) {
+    const yieldPct = portfolioDivYield * 100;
+    if (yieldPct < 1.0 && totalWeight > 50) {
+      out.push({
+        severity: "info",
+        title: `Growth-tilted portfolio (yield ${yieldPct.toFixed(2)}%)`,
+        body: "Negligible income — fine if your goal is appreciation. If you'll need supplemental income later (retirement runway), consider a 10-20% sleeve in higher-yield names (dividend aristocrats, utilities) to smooth withdrawal volatility.",
+      });
+    } else if (yieldPct >= 3.0) {
+      out.push({
+        severity: "good",
+        title: `Income-tilted portfolio (yield ${yieldPct.toFixed(2)}%)`,
+        body: `You're collecting roughly ${yieldPct.toFixed(2)}% per year in dividends from this portfolio. Decent inflation hedge if dividend growth keeps pace — verify by checking each position's 5-year dividend CAGR.`,
+      });
+    }
+  }
+
+  return out;
+}
+
+const SEVERITY_STYLE: Record<Suggestion["severity"], { border: string; icon: string; iconColor: string }> = {
+  good: { border: "border-secondary/40 bg-secondary/5", icon: "check_circle", iconColor: "text-secondary" },
+  info: { border: "border-primary/40 bg-primary/5", icon: "info", iconColor: "text-primary" },
+  warn: { border: "border-amber-400/40 bg-amber-400/5", icon: "warning", iconColor: "text-amber-300" },
+  alert: { border: "border-tertiary/40 bg-tertiary/5", icon: "error", iconColor: "text-tertiary" },
+};
+
+function SuggestionsPanel({
+  tickers,
+  rows,
+  weightDraft,
+  buckets,
+  totalWeight,
+  portfolioDivYield,
+}: {
+  tickers: string[];
+  rows: Record<string, RowState>;
+  weightDraft: Record<string, string>;
+  buckets: Record<CapBucket, { weight: number; tickers: string[] }>;
+  totalWeight: number;
+  portfolioDivYield: number | null;
+}) {
+  const weights: Record<string, number> = {};
+  for (const [t, raw] of Object.entries(weightDraft)) {
+    const v = Number(raw);
+    if (Number.isFinite(v) && v > 0) weights[t] = v;
+  }
+  const suggestions = buildSuggestions({
+    tickers,
+    rows,
+    weights,
+    buckets,
+    totalWeight,
+    portfolioDivYield,
+  });
+
+  return (
+    <div className="bg-surface-container border border-outline-variant rounded-xl mb-6 overflow-hidden">
+      <div className="flex items-center justify-between px-md py-sm bg-surface-container-high border-b border-outline-variant">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary text-[18px]">
+            psychology
+          </span>
+          <h3 className="font-label-caps text-label-caps">PERSONALIZED SUGGESTIONS</h3>
+        </div>
+        <span className="text-[10px] text-on-surface-variant">
+          Based on weights + engine scores · not investment advice
+        </span>
+      </div>
+
+      <div className="p-md grid grid-cols-1 md:grid-cols-2 gap-3">
+        {suggestions.map((s, i) => {
+          const style = SEVERITY_STYLE[s.severity];
+          return (
+            <div
+              key={i}
+              className={"border rounded-lg p-3 " + style.border}
+            >
+              <div className="flex items-start gap-2">
+                <span
+                  className={"material-symbols-outlined text-[18px] mt-0.5 " + style.iconColor}
+                >
+                  {style.icon}
+                </span>
+                <div className="flex-1">
+                  <div className="font-body-md font-semibold text-on-surface text-sm mb-1">
+                    {s.title}
+                  </div>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    {s.body}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

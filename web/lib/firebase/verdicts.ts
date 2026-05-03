@@ -13,7 +13,12 @@ const VERDICT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 // Bump this whenever the engine schema or scoring changes — forces all
 // cached verdicts to be recomputed on next read instead of returning
 // stale docs that crash the new UI.
-const CURRENT_SCHEMA_VERSION = 2;
+//
+// Version history:
+//   1 = legacy v1 engine (subScore-based, no pillars)
+//   2 = continuous-score 9-model engine (chunk 4)
+//   3 = added dividendYield, sector, beta to marketSnapshot (chunk 7)
+const CURRENT_SCHEMA_VERSION = 3;
 
 export async function getCachedVerdict(ticker: string): Promise<VerdictDoc | null> {
   const { db } = getAdmin();
@@ -28,8 +33,16 @@ export async function getCachedVerdict(ticker: string): Promise<VerdictDoc | nul
   if (Date.now() - data.cachedAt > VERDICT_TTL_MS) return null;
   // Schema check — discard caches written by older engine versions.
   if ((data.schemaVersion ?? 1) < CURRENT_SCHEMA_VERSION) return null;
-  // Belt-and-braces: also reject if the doc structurally looks v1.
+  // Structural checks belt-and-braces:
+  // (a) v1 docs have no `pillars` array
   if (!Array.isArray(data.verdict?.pillars)) return null;
+  // (b) pre-chunk-7 docs lack dividendYield in marketSnapshot
+  if (
+    !data.verdict?.marketSnapshot ||
+    !("dividendYield" in data.verdict.marketSnapshot)
+  ) {
+    return null;
+  }
   return data.verdict;
 }
 
