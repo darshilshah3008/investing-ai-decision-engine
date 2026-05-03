@@ -61,15 +61,20 @@ export async function fetchCompanyFacts(cik: string): Promise<CompanyFacts> {
  * Extract a list of points for one US-GAAP concept, restricted to 10-K
  * and 10-Q forms, sorted newest-first by period end.
  *
- * Tries each tag in order, returns the first one that yields data.
- * This handles the v1-style fallback chain across companies that use
- * slightly different XBRL tags for the same concept.
+ * Tries every tag in `tags` and returns whichever yields the *most* data
+ * points. This is critical because some filers (e.g. Apple) report under
+ * `RevenueFromContractWithCustomerExcludingAssessedTax` for current
+ * filings but also have a thin legacy entry under `Revenues`. The naive
+ * "return first non-empty" approach would lock onto the legacy tag and
+ * miss the quarterly series. Picking the longest result auto-routes us
+ * to whichever tag the filer actually uses today.
  */
 export function getConceptUSD(
   facts: CompanyFacts,
   tags: string[],
 ): FactPoint[] {
   const usGaap = facts.raw.facts?.["us-gaap"] ?? {};
+  let best: FactPoint[] = [];
   for (const tag of tags) {
     const obj = usGaap[tag];
     if (!obj) continue;
@@ -86,11 +91,11 @@ export function getConceptUSD(
         filed: u.filed,
         accession: u.accn,
       }));
-    if (filtered.length > 0) {
-      return filtered.sort((a, b) => (a.end < b.end ? 1 : -1));
+    if (filtered.length > best.length) {
+      best = filtered;
     }
   }
-  return [];
+  return best.sort((a, b) => (a.end < b.end ? 1 : -1));
 }
 
 // Tag fallback chains — different filers report the same concept under
