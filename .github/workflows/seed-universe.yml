@@ -1,0 +1,81 @@
+name: Seed universe (weekly)
+
+# Refreshes the universe/* Firestore collection by hitting the admin
+# seed endpoint on a weekly schedule. Free tier: 2,000 GitHub Actions
+# minutes/month — this job uses ~5 min/week.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+  workflow_dispatch:      # allow manual runs from the Actions tab
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Walk through S&P 500 in 20-ticker batches
+        env:
+          ADMIN_SEED_TOKEN: ${{ secrets.ADMIN_SEED_TOKEN }}
+          APP_URL: ${{ secrets.APP_URL || 'https://investing-ai-decision-engine.vercel.app' }}
+        run: |
+          # All ~500 names broken into batches of 20 — each call fits
+          # comfortably inside Vercel's 60s function timeout.
+          TICKERS=(
+            AAPL MSFT NVDA GOOGL GOOG AMZN META TSLA BRK.B UNH
+            JPM V XOM JNJ PG MA AVGO HD CVX MRK
+            LLY PEP ABBV KO COST ADBE WMT BAC TMO CRM
+            MCD CSCO ACN ABT NFLX DHR WFC LIN DIS TXN
+            NEE PM RTX CMCSA NKE UNP INTC ORCL UPS BMY
+            QCOM IBM HON COP LOW SBUX INTU CAT MS BA
+            AMD DE T SPGI AMGN BLK SCHW GE MDT ELV
+            AXP GS BKNG ISRG TJX PLD ADP C SYK NOW
+            GILD LMT MMC MDLZ CB ADI TMUS REGN ZTS VRTX
+            CI ETN SO BDX CME SLB BSX PYPL DUK EQIX
+            AON APD ITW NSC HUM ICE CL TGT FCX CSX
+            EOG FDX PNC WM SHW NOC HCA MO USB GD
+            EMR COF MMM ROP KLAC ORLY MAR GM MNST SRE
+            PSA SNPS CDNS APH NXPI AJG STZ TFC MRVL CTAS
+            CCI MCO MSI TT FTNT ADM KMB AZO MCK HLT
+            TRV ECL DXCM HSY WELL KMI LRCX NEM KHC TEL
+            WMB PCAR DLR D AEP SYY DG PSX O ADSK
+            DHI AIG MET PAYX CTSH TDG VLO BIIB KR CNC
+            WBA MSCI BK STT ALL AMP SPG LEN HES RSG
+            XEL CMG HAL FAST JCI CMI NUE WEC ED CNP
+            KEYS BAX ROST YUM ANET AME HPQ NDAQ IDXX IQV
+            MTD FANG DD PEG TRGP DVN WTW BKR AWK RMD
+            FE ETR DLTR VRSK HIG EFX EQR PCG PWR PPL
+            CTRA WAT RJF EXC CHTR DAL ZBH TSN CDW ON
+            LH PPG AVB WST ALGN BRO FITB ROK KEY HBAN
+            STX CFG STE TROW AEE DOV HOLX TYL STLD AKAM
+            WY NTRS ATO MKC CMS COO K PFG CINF BBY
+            WAB MOH PHM RCL WRB SWKS CBRE ARE ULTA TER
+            ENPH DRI WTRG DTE HSIC ANSS CAG BR DGX MAA
+            FSLR ALB ESS MOS CF GPC BG ETSY KMX FFIV
+            ZION CTLT MTB JKHY PKG NTAP HWM INVH DPZ CLX
+            INCY UDR TXT CE BBWI NRG TPR KIM OMC HRL
+            PNW RHI SJM SEE NVR RE CHRW BIO NWL BWA
+            FOX FOXA HAS NWS NWSA WHR EMN ALK XRAY FRT
+            RL HII NDSN JNPR LKQ CPB PARA WYNN IPG UAA
+            UA DXC HOG MGM LUMN GPS GME M KSS NCLH
+            CCL AAL DISH AMC TFX AOS ARES MAS LDOS BLDR
+            SBAC AMCR ZBRA
+          )
+
+          BATCH_SIZE=20
+          TOTAL=${#TICKERS[@]}
+          echo "Will seed $TOTAL tickers in batches of $BATCH_SIZE"
+
+          for ((i=0; i<TOTAL; i+=BATCH_SIZE)); do
+            BATCH=("${TICKERS[@]:i:BATCH_SIZE}")
+            JSON=$(printf '%s\n' "${BATCH[@]}" | jq -R . | jq -s -c '{tickers: .}')
+            echo "Batch $((i / BATCH_SIZE + 1)): ${BATCH[*]}"
+            RESP=$(curl -s -X POST \
+              -H "Content-Type: application/json" \
+              -H "x-admin-token: $ADMIN_SEED_TOKEN" \
+              -d "$JSON" \
+              "$APP_URL/api/admin/seed-universe")
+            echo "$RESP" | jq -r '"  ok=\(.succeeded) failed=\(.failed)"' || echo "$RESP"
+            sleep 5
+          done
+          echo "Seed complete."
