@@ -10,13 +10,26 @@ import { getAdmin } from "./admin";
 
 const VERDICT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
+// Bump this whenever the engine schema or scoring changes — forces all
+// cached verdicts to be recomputed on next read instead of returning
+// stale docs that crash the new UI.
+const CURRENT_SCHEMA_VERSION = 2;
+
 export async function getCachedVerdict(ticker: string): Promise<VerdictDoc | null> {
   const { db } = getAdmin();
   if (!db) return null;
   const doc = await db.collection("verdicts").doc(ticker.toUpperCase()).get();
   if (!doc.exists) return null;
-  const data = doc.data() as { verdict: VerdictDoc; cachedAt: number };
+  const data = doc.data() as {
+    verdict: VerdictDoc;
+    cachedAt: number;
+    schemaVersion?: number;
+  };
   if (Date.now() - data.cachedAt > VERDICT_TTL_MS) return null;
+  // Schema check — discard caches written by older engine versions.
+  if ((data.schemaVersion ?? 1) < CURRENT_SCHEMA_VERSION) return null;
+  // Belt-and-braces: also reject if the doc structurally looks v1.
+  if (!Array.isArray(data.verdict?.pillars)) return null;
   return data.verdict;
 }
 
@@ -26,7 +39,11 @@ export async function setCachedVerdict(verdict: VerdictDoc): Promise<void> {
   await db
     .collection("verdicts")
     .doc(verdict.ticker.toUpperCase())
-    .set({ verdict, cachedAt: Date.now() });
+    .set({
+      verdict,
+      cachedAt: Date.now(),
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+    });
 }
 
 export interface WatchlistEntry {

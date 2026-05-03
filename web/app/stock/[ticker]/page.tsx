@@ -259,8 +259,10 @@ function VerdictView({
         </p>
       </section>
 
-      {/* Pillar Scorecard */}
-      <PillarScorecard pillars={verdict.pillars} totalScore={verdict.totalScore} />
+      {/* Pillar Scorecard — defensive: guard against legacy cached verdicts */}
+      {Array.isArray(verdict.pillars) && verdict.pillars.length > 0 && (
+        <PillarScorecard pillars={verdict.pillars} totalScore={verdict.totalScore} />
+      )}
 
       {/* Per-model cards */}
       <div className="grid grid-cols-1 gap-lg mb-xl mt-xl">
@@ -343,14 +345,21 @@ function PillarScorecard({
 
 function ModelCard({ model, cik }: { model: ModelResult; cik: string }) {
   const [expanded, setExpanded] = useState(false);
-  const score = model.score;
+  // Defensive: handle legacy cached verdicts where `score` lived under
+  // `subScore` (integer −2..+2). New schema uses continuous `score`.
+  const score =
+    typeof model.score === "number"
+      ? model.score
+      : typeof (model as unknown as { subScore?: number }).subScore === "number"
+        ? (model as unknown as { subScore: number }).subScore / 2
+        : 0;
   const colorClass =
     score > 0.1
       ? "text-secondary"
       : score < -0.1
         ? "text-tertiary"
         : "text-on-surface-variant";
-  const lowConfidence = model.confidence < 0.3;
+  const lowConfidence = (model.confidence ?? 1) < 0.3;
 
   return (
     <div className="bg-surface-container border border-primary/30 rounded-lg overflow-hidden ring-1 ring-primary/20">
