@@ -17,6 +17,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", icon: "dashboard", label: "Terminal" },
   { href: "/watchlist", icon: "list_alt", label: "Watchlists" },
+  { href: "/compare", icon: "compare_arrows", label: "Compare" },
   { href: "/universe", icon: "public", label: "Universe", proOnly: true },
   { href: "/models", icon: "analytics", label: "Models" },
   { href: "/research", icon: "biotech", label: "Research Labs" },
