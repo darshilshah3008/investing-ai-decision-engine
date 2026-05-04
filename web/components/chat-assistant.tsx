@@ -7,10 +7,9 @@
 //   - "verdict"   — current stock page; sends ticker
 //   - "portfolio" — watchlist page; sends watchlist ID
 //
-// Free users see a locked overlay with an upgrade CTA instead of the
-// chat input. Server-side enforces the same gate (defense in depth).
+// Hidden entirely for non-Pro users (no floating button shown). Server-side
+// enforces the same gate at /api/chat (defense in depth).
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/firebase/auth-context";
 
@@ -59,6 +58,7 @@ export function ChatAssistant({ context }: Props) {
   if (!user) return null; // Hide for unauthenticated visitors
 
   const isPro = tier === "pro";
+  if (!isPro) return null; // Hide button entirely for free users — discovery happens via /pricing
 
   const placeholder =
     context.kind === "verdict"
@@ -167,33 +167,8 @@ export function ChatAssistant({ context }: Props) {
             </button>
           </div>
 
-          {/* Pro gate */}
-          {!isPro ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <span className="material-symbols-outlined text-primary text-4xl mb-3">
-                workspace_premium
-              </span>
-              <h3 className="font-h2 text-h2 mb-2">Pro feature</h3>
-              <p className="text-sm text-on-surface-variant mb-5 max-w-xs">
-                The engine assistant lets you ask questions about your portfolio
-                and get answers grounded in your actual data — pillar gaps,
-                concentration risk, weight rebalancing math, etc.
-              </p>
-              <Link
-                href="/pricing"
-                className="bg-primary text-on-primary px-5 py-2 rounded-lg font-label-caps hover:brightness-110 inline-flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[18px]">upgrade</span>
-                Upgrade to Pro
-              </Link>
-              <p className="text-[10px] text-on-surface-variant mt-4 max-w-xs">
-                Costs us &lt; $0.001 per question. Free for Pro subscribers.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Message list */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* Message list */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 && (
                   <div className="space-y-3">
                     <p className="text-sm text-on-surface-variant">
@@ -269,12 +244,10 @@ export function ChatAssistant({ context }: Props) {
                 </button>
               </form>
 
-              <div className="px-3 py-1.5 bg-surface-container-lowest text-[9px] text-on-surface-variant text-center border-t border-outline-variant">
-                AI can make mistakes — verify critical numbers against the source
-                filings. Not investment advice.
-              </div>
-            </>
-          )}
+          <div className="px-3 py-1.5 bg-surface-container-lowest text-[9px] text-on-surface-variant text-center border-t border-outline-variant">
+            AI can make mistakes — verify critical numbers against the source
+            filings. Not investment advice.
+          </div>
         </div>
       )}
     </>
