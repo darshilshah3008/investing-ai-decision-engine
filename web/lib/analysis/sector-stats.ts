@@ -55,6 +55,16 @@ export interface SectorStats {
 }
 
 /**
+ * Firestore document IDs cannot contain `/` and cannot be `.` or `..`.
+ * Yahoo sector strings are clean today ("Technology", "Financial Services"),
+ * but a defensive substitution costs nothing and protects against any future
+ * upstream weirdness.
+ */
+export function encodeSectorKey(sector: string): string {
+  return sector.replace(/\//g, "-").replace(/^\.+$/, "_");
+}
+
+/**
  * Normalizes Yahoo-provided sector strings:
  *   • trims and collapses whitespace
  *   • null / empty / "n/a" → BROAD_MARKET

@@ -17,10 +17,14 @@
 import {
   BROAD_MARKET,
   computeSectorStats,
+  encodeSectorKey,
   type SectorStats,
   type SectorStatsInput,
 } from "./sector-stats.ts";
 import type { VerdictDoc } from "./types.ts";
+
+// Re-export for callers that previously imported from this module.
+export { encodeSectorKey };
 
 // ─── Minimal Firestore shape ───────────────────────────────────────────
 
@@ -50,16 +54,6 @@ export interface FirestoreLike {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────
-
-/**
- * Firestore document IDs cannot contain `/` and must not be `.` / `..`.
- * Sector names from Yahoo are clean today ("Technology", "Financial Services"),
- * but a defensive substitution costs nothing and protects against future
- * upstream changes.
- */
-export function encodeSectorKey(sector: string): string {
-  return sector.replace(/\//g, "-").replace(/^\.+$/, "_");
-}
 
 interface UniverseRow {
   ticker: string;

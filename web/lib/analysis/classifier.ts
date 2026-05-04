@@ -21,6 +21,7 @@
 
 import { fetchCompanyFacts, getConceptUSD, TAGS } from "../edgar/companyfacts";
 import { findCikByTicker } from "../edgar/tickers";
+import { pickPeerCohort } from "../firebase/sector-stats";
 import { cagrModel } from "./cagr";
 import { debtSustainabilityModel } from "./debt-sustainability";
 import { earningsYieldModel } from "./earnings-yield";
@@ -30,6 +31,7 @@ import { marginTrendModel } from "./margin-trend";
 import { piotroskiLiteModel } from "./piotroski";
 import { revenueTrendModel } from "./revenue";
 import { roicModel } from "./roic";
+import { percentileRank } from "./sector-stats";
 import type {
   ModelResult,
   Pillar,
@@ -248,6 +250,35 @@ export async function computeVerdict(
   const confidence: "High" | "Medium" | "Low" =
     highConfModels >= 6 ? "High" : highConfModels >= 4 ? "Medium" : "Low";
 
+  // Sector-relative percentiles. Best-effort enrichment: if no cohort is
+  // available yet (Firestore not configured, sector unknown, or this is the
+  // first run before the recompute cron has fired), the verdict still ships,
+  // just without the percentile fields. The UI treats them as optional.
+  let totalScorePercentile: number | null = null;
+  let peerCohort: VerdictDoc["peerCohort"] = null;
+  try {
+    const cohort = await pickPeerCohort(args.sector ?? null);
+    if (cohort) {
+      const { stats } = cohort;
+      peerCohort = { sector: stats.sector, sampleSize: stats.sampleSize };
+      if (stats.sampleSize > 0) {
+        totalScorePercentile = percentileRank(totalScore, stats.totalScore);
+        for (const m of models) {
+          const bp = stats.models[m.name];
+          if (bp) m.sectorPercentile = percentileRank(m.score, bp);
+        }
+        for (const p of pillars) {
+          const bp = stats.pillars[p.pillar];
+          if (bp) p.sectorPercentile = percentileRank(p.score, bp);
+        }
+      }
+    }
+  } catch (err) {
+    // Never let a sector-stats fetch error break verdict computation.
+    // Log and continue — percentiles just stay null on this run.
+    console.warn(`[classifier] sector-stats lookup failed for ${ticker}:`, err);
+  }
+
   return {
     ticker,
     cik,
@@ -262,6 +293,8 @@ export async function computeVerdict(
     confidence,
     catalysts: genCatalysts(models),
     risks: genRisks(models),
+    totalScorePercentile,
+    peerCohort,
     sensitivity: [
       // Educational placeholders — Phase 2 will compute by perturbing inputs
       {
