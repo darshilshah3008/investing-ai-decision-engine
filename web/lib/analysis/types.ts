@@ -48,6 +48,13 @@ export interface ModelResult {
   inputs: InputTrace[];
   interpretation: string;
   resultText: string;
+  /**
+   * Where this model's score sits relative to same-sector peers, 0–100.
+   * Optional — only present when sector stats existed at verdict-build time.
+   * Null means the sector had insufficient sample size and no Broad Market
+   * fallback was usable either.
+   */
+  sectorPercentile?: number | null;
 }
 
 export interface PillarResult {
@@ -56,6 +63,7 @@ export interface PillarResult {
   pillarWeight: number;   // weight within total
   contribution: number;   // score * pillarWeight
   modelCount: number;     // how many models contributed
+  sectorPercentile?: number | null; // 0-100, see ModelResult.sectorPercentile
 }
 
 export interface VerdictDoc {
@@ -73,6 +81,18 @@ export interface VerdictDoc {
   catalysts: string[];
   risks: string[];
   sensitivity: { scenario: string; effect: number; newVerdict: Verdict }[];
+  /**
+   * Percentile rank of `totalScore` against same-sector peers (0–100).
+   * Optional + nullable for backwards compatibility with cached docs that
+   * pre-date the sector-stats feature.
+   */
+  totalScorePercentile?: number | null;
+  /**
+   * Which sector cohort the percentiles above were computed against.
+   * Either the company's own sector (when sample ≥ MIN_SAMPLE_SIZE) or
+   * "Broad Market" as a fallback. Useful for tooltip copy.
+   */
+  peerCohort?: { sector: string; sampleSize: number } | null;
   marketSnapshot: {
     price: number | null;
     marketCap: number | null;
