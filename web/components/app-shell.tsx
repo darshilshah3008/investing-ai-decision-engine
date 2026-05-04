@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/firebase/auth-context";
 
 interface NavItem {
@@ -29,11 +30,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, signOut, tier } = useAuth();
   const isPro = tier === "pro";
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Auto-close the mobile drawer on route change so the new page is visible.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   return (
     <>
-      {/* Left navigation drawer */}
-      <aside className="fixed left-0 top-0 h-full flex flex-col h-screen w-64 border-r border-[#1F2937] bg-[#131922] z-50">
+      {/* Mobile backdrop — visible only when drawer is open below md */}
+      {mobileNavOpen && (
+        <button
+          aria-label="Close navigation"
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] md:hidden"
+        />
+      )}
+
+      {/* Left navigation drawer — fixed on desktop, slide-over on mobile */}
+      <aside
+        className={
+          "fixed left-0 top-0 h-full flex flex-col h-screen w-64 border-r border-[#1F2937] bg-[#131922] z-50 transition-transform duration-200 ease-out md:translate-x-0 " +
+          (mobileNavOpen ? "translate-x-0" : "-translate-x-full")
+        }
+      >
         <Link href="/" className="p-6 block">
           <span className="text-lg font-bold tracking-tighter text-slate-100 uppercase">
             Decision Engine
@@ -108,15 +129,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Top app bar */}
-      <header className="fixed top-0 right-0 left-64 h-14 px-6 flex items-center justify-between z-40 bg-[#0A0E14]/80 backdrop-blur-md border-b border-[#1F2937]">
-        <div className="flex items-center gap-3">
+      <header className="fixed top-0 right-0 left-0 md:left-64 h-14 px-4 md:px-6 flex items-center justify-between z-40 bg-[#0A0E14]/80 backdrop-blur-md border-b border-[#1F2937]">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <button
+            aria-label="Open navigation"
+            onClick={() => setMobileNavOpen(true)}
+            className="md:hidden material-symbols-outlined text-slate-300 hover:text-slate-100"
+          >
+            menu
+          </button>
           <span className="material-symbols-outlined text-indigo-500">memory</span>
-          <h1 className="text-base font-black text-slate-50 tracking-tight">
-            Investing AI Decision Engine
+          <h1 className="text-sm md:text-base font-black text-slate-50 tracking-tight truncate">
+            <span className="hidden sm:inline">Investing AI Decision Engine</span>
+            <span className="sm:hidden">Decision Engine</span>
           </h1>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="font-sans text-xs uppercase tracking-widest font-bold text-slate-400">
+        <div className="flex items-center gap-3 md:gap-4">
+          <span className="hidden sm:inline font-sans text-xs uppercase tracking-widest font-bold text-slate-400">
             Market Open
           </span>
           <Link
@@ -129,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main canvas */}
-      <main className="ml-64 pb-24 mt-14">{children}</main>
+      <main className="ml-0 md:ml-64 pb-24 mt-14">{children}</main>
     </>
   );
 }
