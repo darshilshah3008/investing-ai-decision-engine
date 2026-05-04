@@ -30,6 +30,28 @@ export function formatPercent(n: number | null | undefined, digits = 1): string 
   return `${(n * 100).toFixed(digits)}%`;
 }
 
+/**
+ * Format a percentile rank (0–100) as an English ordinal like "78th".
+ * Handles the 11/12/13 → "11th/12th/13th" exception correctly.
+ * Non-finite input returns "—".
+ */
+export function ordinalPercentile(p: number | null | undefined): string {
+  if (p == null || !Number.isFinite(p)) return "—";
+  const n = Math.round(p);
+  const mod100 = ((n % 100) + 100) % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (((n % 10) + 10) % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 export function formatScore(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }

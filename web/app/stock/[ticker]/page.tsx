@@ -15,6 +15,7 @@ import {
   formatRelativeTime,
   formatScoreContinuous,
   formatUSD,
+  ordinalPercentile,
   scoreColorClass,
 } from "@/lib/format";
 
@@ -33,6 +34,38 @@ function pillarTooltip(pillar: string): string {
     default:
       return "";
   }
+}
+
+/**
+ * Tiny inline percentile bar — a track with p25/p50/p75 ticks and a colored
+ * dot at the current percentile. Mobile-friendly: scales to its container,
+ * no fixed widths. Renders nothing if percentile is missing.
+ */
+function PercentileBar({
+  percentile,
+  className = "",
+}: {
+  percentile: number | null | undefined;
+  className?: string;
+}) {
+  if (percentile == null || !Number.isFinite(percentile)) return null;
+  const clamped = Math.max(0, Math.min(100, percentile));
+  return (
+    <div
+      className={"relative h-1.5 w-full max-w-[120px] bg-surface-container-lowest rounded-full " + className}
+      aria-label={`Percentile rank ${Math.round(clamped)} of 100`}
+    >
+      {/* p25 / p50 / p75 reference ticks */}
+      <span className="absolute top-0 bottom-0 w-px bg-on-surface-variant/30" style={{ left: "25%" }} />
+      <span className="absolute top-0 bottom-0 w-0.5 bg-on-surface-variant/60" style={{ left: "50%" }} />
+      <span className="absolute top-0 bottom-0 w-px bg-on-surface-variant/30" style={{ left: "75%" }} />
+      {/* Position marker */}
+      <span
+        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-primary ring-1 ring-surface shadow"
+        style={{ left: `${clamped}%` }}
+      />
+    </div>
+  );
 }
 
 export default function VerdictPage() {
@@ -240,6 +273,30 @@ function VerdictView({
           </div>
         </div>
 
+        {/* Sector-relative percentile chip — shown only when cohort data is
+            available. Wraps to its own line on mobile. */}
+        {verdict.totalScorePercentile != null && verdict.peerCohort && (
+          <div
+            className="inline-flex items-center gap-2 mt-md px-3 py-1.5 bg-primary-container/10 border border-primary/30 rounded-full text-xs"
+            title={`Total score ${formatContinuousScore(verdict.totalScore)} ranks at the ${ordinalPercentile(verdict.totalScorePercentile)} percentile vs ${verdict.peerCohort.sampleSize} ${verdict.peerCohort.sector} peers in our universe.`}
+          >
+            <span className="material-symbols-outlined text-primary text-[14px]">
+              insights
+            </span>
+            <span className="text-on-surface">
+              <span className="font-data-sm text-primary">
+                {ordinalPercentile(verdict.totalScorePercentile)} pct
+              </span>
+              <span className="text-on-surface-variant">
+                {" "}vs {verdict.peerCohort.sector}{" "}
+                <span className="text-on-surface-variant/70">
+                  (n={verdict.peerCohort.sampleSize})
+                </span>
+              </span>
+            </span>
+          </div>
+        )}
+
         {/* Metadata strip */}
         <div className="flex flex-wrap items-center gap-lg mt-md py-sm px-md bg-surface-container-low border border-outline-variant rounded">
           <div className="flex items-center gap-xs">
@@ -299,7 +356,11 @@ function VerdictView({
 
       {/* Pillar Scorecard — defensive: guard against legacy cached verdicts */}
       {Array.isArray(verdict.pillars) && verdict.pillars.length > 0 && (
-        <PillarScorecard pillars={verdict.pillars} totalScore={verdict.totalScore} />
+        <PillarScorecard
+          pillars={verdict.pillars}
+          totalScore={verdict.totalScore}
+          peerCohort={verdict.peerCohort}
+        />
       )}
 
       {/* Per-model cards */}
@@ -622,24 +683,70 @@ function Stat({
 function PillarScorecard({
   pillars,
   totalScore,
+  peerCohort,
 }: {
   pillars: PillarResult[];
   totalScore: number;
+  peerCohort?: VerdictDoc["peerCohort"];
 }) {
   const totalColor = scoreColorClass(totalScore);
+  const anyPercentiles = pillars.some((p) => p.sectorPercentile != null);
   return (
     <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
-      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant flex justify-between items-center">
+      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant flex justify-between items-center gap-2">
         <h3 className="font-label-caps text-label-caps">PILLAR SCORECARD</h3>
         <span className={"font-data-md text-data-md " + totalColor}>
           Total {formatContinuousScore(totalScore)}
         </span>
       </div>
-      <table className="w-full text-left border-collapse">
+
+      {/* Mobile + tablet: card layout — every field visible without horizontal
+          scroll. The table layout below kicks in only at lg+ where there's
+          enough horizontal room for the new VS PEERS column. */}
+      <div className="lg:hidden divide-y divide-outline-variant">
+        {pillars.map((p) => (
+          <div key={p.pillar} className="px-md py-sm" title={pillarTooltip(p.pillar)}>
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="font-semibold">{p.pillar}</span>
+              <span className={"font-data-md text-data-md " + scoreColorClass(p.score)}>
+                {formatContinuousScore(p.score)}
+              </span>
+            </div>
+            {p.sectorPercentile != null && peerCohort && (
+              <div
+                className="flex items-center gap-2 mb-1"
+                title={`${ordinalPercentile(p.sectorPercentile)} percentile vs ${peerCohort.sampleSize} ${peerCohort.sector} peers`}
+              >
+                <PercentileBar percentile={p.sectorPercentile} className="flex-1" />
+                <span className="text-[10px] text-on-surface-variant whitespace-nowrap">
+                  {ordinalPercentile(p.sectorPercentile)} pct
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-3 text-[11px] text-on-surface-variant">
+              <span>Weight {(p.pillarWeight * 100).toFixed(0)}%</span>
+              <span>·</span>
+              <span className={scoreColorClass(p.contribution)}>
+                Contrib {formatContinuousScore(p.contribution)}
+              </span>
+              <span>·</span>
+              <span>{p.modelCount} models</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop only (lg+): full table layout. */}
+      <table className="hidden lg:table w-full text-left border-collapse">
         <thead>
           <tr className="border-b border-outline-variant bg-surface-container-low">
             <th className="p-md font-label-caps text-label-caps text-on-surface-variant">PILLAR</th>
             <th className="p-md font-label-caps text-label-caps text-on-surface-variant">SCORE</th>
+            {anyPercentiles && (
+              <th className="p-md font-label-caps text-label-caps text-on-surface-variant">
+                VS PEERS
+              </th>
+            )}
             <th className="p-md font-label-caps text-label-caps text-on-surface-variant">WEIGHT</th>
             <th className="p-md font-label-caps text-label-caps text-on-surface-variant">CONTRIBUTION</th>
             <th className="p-md font-label-caps text-label-caps text-on-surface-variant">MODELS</th>
@@ -654,6 +761,23 @@ function PillarScorecard({
               <td className={"p-md " + scoreColorClass(p.score)}>
                 {formatContinuousScore(p.score)}
               </td>
+              {anyPercentiles && (
+                <td className="p-md min-w-[160px]">
+                  {p.sectorPercentile != null && peerCohort ? (
+                    <div
+                      className="flex items-center gap-2"
+                      title={`${ordinalPercentile(p.sectorPercentile)} percentile vs ${peerCohort.sampleSize} ${peerCohort.sector} peers`}
+                    >
+                      <PercentileBar percentile={p.sectorPercentile} className="flex-1" />
+                      <span className="text-[11px] text-on-surface-variant whitespace-nowrap">
+                        {ordinalPercentile(p.sectorPercentile)}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-on-surface-variant text-xs">—</span>
+                  )}
+                </td>
+              )}
               <td className="p-md text-on-surface-variant">
                 {(p.pillarWeight * 100).toFixed(0)}%
               </td>
