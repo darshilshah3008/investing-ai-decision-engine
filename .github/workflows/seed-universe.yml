@@ -79,3 +79,15 @@ jobs:
             sleep 5
           done
           echo "Seed complete."
+
+      - name: Recompute sector-relative percentile breakpoints
+        env:
+          ADMIN_SEED_TOKEN: ${{ secrets.ADMIN_SEED_TOKEN }}
+          APP_URL: ${{ secrets.APP_URL || 'https://investing-ai-decision-engine.vercel.app' }}
+        run: |
+          # After the universe is fresh, rebuild sectorStats/{sector} so the
+          # verdict UI can render percentile chips against current peers.
+          RESP=$(curl -s -X POST \
+            -H "x-admin-token: $ADMIN_SEED_TOKEN" \
+            "$APP_URL/api/admin/recompute-sector-stats")
+          echo "$RESP" | jq '.' || echo "$RESP"
