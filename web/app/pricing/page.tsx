@@ -1,11 +1,27 @@
+"use client";
+
 // Pricing page — adapted from Stitch screen (5) HTML.
-// Pure marketing page (server-rendered, no auth gate).
+// Pure marketing surface. Free tier links to /dashboard for sign-in.
+// Paid tiers (Pro / Premium) open the waitlist dialog while payments
+// are not yet wired.
 
 import Link from "next/link";
+import { useState } from "react";
 import { PublicFooter } from "@/components/public-footer";
+import { WaitlistDialog } from "@/components/waitlist-dialog";
 
-const PLANS = [
+type PlanKey = "free" | "pro" | "premium";
+
+const PLANS: Array<{
+  key: PlanKey;
+  name: string;
+  price: string;
+  cta: string;
+  highlight: boolean;
+  features: { label: string; included: boolean }[];
+}> = [
   {
+    key: "free",
     name: "EXPLORER",
     price: "$0",
     cta: "Get started",
@@ -22,13 +38,14 @@ const PLANS = [
     ],
   },
   {
+    key: "pro",
     name: "PROFESSIONAL",
     price: "$15",
-    cta: "Go Pro",
+    cta: "Join Pro waitlist",
     highlight: true,
     features: [
       { label: "Unlimited stock lookups", included: true },
-      { label: "All 12 fundamental models", included: true },
+      { label: "All 9 fundamental models", included: true },
       { label: "Verdict caching (24h)", included: true },
       { label: "Custom scoring weights", included: true },
       { label: "5 watchlists", included: true },
@@ -38,9 +55,10 @@ const PLANS = [
     ],
   },
   {
+    key: "premium",
     name: "INSTITUTIONAL",
     price: "$30",
-    cta: "Contact sales",
+    cta: "Join Premium waitlist",
     highlight: false,
     features: [
       { label: "Pro features +", included: true },
@@ -56,6 +74,8 @@ const PLANS = [
 ];
 
 export default function PricingPage() {
+  const [waitlistPlan, setWaitlistPlan] = useState<"pro" | "premium" | null>(null);
+
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 h-14 bg-[#0A0E14]/80 backdrop-blur-md border-b border-[#1F2937] z-50 px-gutter flex items-center justify-between">
@@ -98,63 +118,20 @@ export default function PricingPage() {
             Pay only when the math helps you. Cancel any time. Each tier ships with the full
             audit trail — the math is never paywalled.
           </p>
+          {/* Beta banner — paid plans not live yet */}
+          <div className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-primary/10 border border-primary/30 rounded-full text-xs text-on-surface">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span>
+              <strong className="text-primary">Public beta</strong> — paid plans launching soon.
+              Free tier is open today; join the waitlist for founding-member pricing.
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-lg max-w-6xl mx-auto">
-          {PLANS.map((p) => (
-            <div
-              key={p.name}
-              className={
-                "p-lg rounded-xl flex flex-col relative " +
-                (p.highlight
-                  ? "bg-surface-container border-2 border-primary scale-105 shadow-2xl"
-                  : "bg-surface-container-low border border-outline-variant")
-              }
-            >
-              {p.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-3 py-1 rounded-full font-label-caps text-[10px]">
-                  MOST POPULAR
-                </div>
-              )}
+          {PLANS.map((p) => {
+            const ctaInner = (
               <span
-                className={
-                  "font-label-caps mb-2 " +
-                  (p.highlight ? "text-primary" : "text-on-surface-variant")
-                }
-              >
-                {p.name}
-              </span>
-              <div className="font-display-lg text-display-lg mb-md">
-                {p.price}{" "}
-                <span className="text-xs font-body-sm text-on-surface-variant">/mo</span>
-              </div>
-              <ul className="space-y-sm mb-xl flex-grow">
-                {p.features.map((f, i) => (
-                  <li
-                    key={i}
-                    className={
-                      "flex items-center gap-2 text-sm " +
-                      (f.included
-                        ? p.highlight
-                          ? "text-on-surface font-medium"
-                          : "text-on-surface-variant"
-                        : "text-on-surface-variant opacity-50")
-                    }
-                  >
-                    <span
-                      className={
-                        "material-symbols-outlined text-[16px] " +
-                        (f.included ? "text-secondary" : "text-on-surface-variant")
-                      }
-                    >
-                      {f.included ? "check_circle" : "cancel"}
-                    </span>
-                    {f.label}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/dashboard"
                 className={
                   "block w-full py-3 text-center rounded-lg font-label-caps transition-colors " +
                   (p.highlight
@@ -163,9 +140,76 @@ export default function PricingPage() {
                 }
               >
                 {p.cta.toUpperCase()}
-              </Link>
-            </div>
-          ))}
+              </span>
+            );
+
+            return (
+              <div
+                key={p.name}
+                className={
+                  "p-lg rounded-xl flex flex-col relative " +
+                  (p.highlight
+                    ? "bg-surface-container border-2 border-primary scale-105 shadow-2xl"
+                    : "bg-surface-container-low border border-outline-variant")
+                }
+              >
+                {p.highlight && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-3 py-1 rounded-full font-label-caps text-[10px]">
+                    MOST POPULAR
+                  </div>
+                )}
+                <span
+                  className={
+                    "font-label-caps mb-2 " +
+                    (p.highlight ? "text-primary" : "text-on-surface-variant")
+                  }
+                >
+                  {p.name}
+                </span>
+                <div className="font-display-lg text-display-lg mb-md">
+                  {p.price}{" "}
+                  <span className="text-xs font-body-sm text-on-surface-variant">/mo</span>
+                </div>
+                <ul className="space-y-sm mb-xl flex-grow">
+                  {p.features.map((f, i) => (
+                    <li
+                      key={i}
+                      className={
+                        "flex items-center gap-2 text-sm " +
+                        (f.included
+                          ? p.highlight
+                            ? "text-on-surface font-medium"
+                            : "text-on-surface-variant"
+                          : "text-on-surface-variant opacity-50")
+                      }
+                    >
+                      <span
+                        className={
+                          "material-symbols-outlined text-[16px] " +
+                          (f.included ? "text-secondary" : "text-on-surface-variant")
+                        }
+                      >
+                        {f.included ? "check_circle" : "cancel"}
+                      </span>
+                      {f.label}
+                    </li>
+                  ))}
+                </ul>
+
+                {p.key === "free" ? (
+                  <Link href="/dashboard">{ctaInner}</Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setWaitlistPlan(p.key as "pro" | "premium")}
+                    className="w-full"
+                  >
+                    {ctaInner}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Comparison heading */}
@@ -194,6 +238,13 @@ export default function PricingPage() {
         </div>
       </main>
       <PublicFooter />
+
+      <WaitlistDialog
+        open={waitlistPlan !== null}
+        plan={waitlistPlan}
+        source="pricing"
+        onClose={() => setWaitlistPlan(null)}
+      />
     </>
   );
 }

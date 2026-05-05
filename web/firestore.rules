@@ -40,5 +40,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // Waitlist — captured by /api/waitlist (admin SDK only). No client
+    // reads (the list is not public) and no client writes (rate-limited
+    // server-side route is the only ingress).
+    match /waitlist/{entryId} {
+      allow read, write: if false;
+    }
   }
 }

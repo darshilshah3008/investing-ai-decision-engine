@@ -97,9 +97,57 @@ const UA =
 let crumbCache: { cookie: string; crumb: string; ts: number } | null = null;
 const CRUMB_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+// Circuit breaker: if Yahoo rotates the crumb protocol (which has happened
+// multiple times historically), repeated getCrumb() calls in tight loops
+// would hammer fc.yahoo.com. Track recent failures and short-circuit when
+// the threshold is hit so the engine returns null fields cleanly without
+// burning request budget.
+const CIRCUIT_FAIL_THRESHOLD = 3;
+const CIRCUIT_WINDOW_MS = 10 * 60 * 1000;     // count failures over 10 min
+const CIRCUIT_OPEN_DURATION_MS = 15 * 60 * 1000; // back off for 15 min
+
+let crumbFailureTimestamps: number[] = [];
+let crumbCircuitOpenUntil = 0;
+
+function recordCrumbFailure() {
+  const now = Date.now();
+  crumbFailureTimestamps = crumbFailureTimestamps.filter(
+    (t) => now - t < CIRCUIT_WINDOW_MS,
+  );
+  crumbFailureTimestamps.push(now);
+  if (crumbFailureTimestamps.length >= CIRCUIT_FAIL_THRESHOLD) {
+    crumbCircuitOpenUntil = now + CIRCUIT_OPEN_DURATION_MS;
+    crumbFailureTimestamps = [];
+    console.error(
+      `[yahoo] crumb circuit breaker OPEN — backing off until ${new Date(
+        crumbCircuitOpenUntil,
+      ).toISOString()}`,
+    );
+  }
+}
+
+function isCrumbCircuitOpen(): boolean {
+  return Date.now() < crumbCircuitOpenUntil;
+}
+
+/** Exposed for diagnostics / health endpoints. */
+export function yahooCrumbHealth() {
+  return {
+    circuitOpen: isCrumbCircuitOpen(),
+    circuitOpenUntil: crumbCircuitOpenUntil || null,
+    recentFailures: crumbFailureTimestamps.length,
+    cached: crumbCache !== null,
+  };
+}
+
 async function getCrumb(): Promise<{ cookie: string; crumb: string } | null> {
   if (crumbCache && Date.now() - crumbCache.ts < CRUMB_TTL_MS) {
     return { cookie: crumbCache.cookie, crumb: crumbCache.crumb };
+  }
+  // Circuit-breaker open: skip the request entirely. Caller already
+  // handles a null return by emitting empty market-snapshot fields.
+  if (isCrumbCircuitOpen()) {
+    return null;
   }
   try {
     // Step 1: hit fc.yahoo.com to get session cookies
@@ -110,6 +158,7 @@ async function getCrumb(): Promise<{ cookie: string; crumb: string } | null> {
     const setCookieHeader = cookieResp.headers.get("set-cookie");
     if (!setCookieHeader) {
       console.warn("[yahoo] no set-cookie from fc.yahoo.com");
+      recordCrumbFailure();
       return null;
     }
     // Multiple cookies are comma-separated; we want all of them flattened
@@ -133,17 +182,20 @@ async function getCrumb(): Promise<{ cookie: string; crumb: string } | null> {
     );
     if (!crumbResp.ok) {
       console.warn(`[yahoo] crumb request failed: ${crumbResp.status}`);
+      recordCrumbFailure();
       return null;
     }
     const crumb = (await crumbResp.text()).trim();
     if (!crumb || crumb.length < 5 || crumb.includes("<")) {
       console.warn("[yahoo] crumb response looked invalid");
+      recordCrumbFailure();
       return null;
     }
     crumbCache = { cookie, crumb, ts: Date.now() };
     return { cookie, crumb };
   } catch (err) {
     console.error("[yahoo] crumb error:", err);
+    recordCrumbFailure();
     return null;
   }
 }

@@ -9,6 +9,7 @@
 import { computeVerdict } from "@/lib/analysis/classifier";
 import { getCachedVerdict, setCachedVerdict } from "@/lib/firebase/verdicts";
 import { fetchSnapshot } from "@/lib/market/yahoo";
+import { captureServerError } from "@/lib/observability";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -59,10 +60,24 @@ export async function GET(
     setCachedVerdict(verdict).catch(() => undefined);
     return NextResponse.json({ verdict, cached: false });
   } catch (err) {
-    console.error(`/api/verdict/${ticker} error:`, err);
+    // Log the full error server-side for Vercel function logs / Sentry,
+    // but never leak stack traces, internal URLs, or transport-layer
+    // errors (e.g. ECONNRESET) to clients.
+    captureServerError(err, { route: "/api/verdict", extra: { ticker } });
+    const message = err instanceof Error ? err.message : String(err);
+    const isUpstreamData = /EDGAR|companyfacts|fetch|ECONN|ETIMEDOUT|ENOTFOUND/i.test(
+      message,
+    );
+    const isMissingTicker = /not found|404|no .*data/i.test(message);
     return NextResponse.json(
-      { error: String(err instanceof Error ? err.message : err) },
-      { status: 500 },
+      {
+        error: isMissingTicker
+          ? `We couldn't find filings for ${ticker}. Double-check the ticker symbol and try again.`
+          : isUpstreamData
+            ? "Couldn't load data for this ticker right now. Please try again in a moment."
+            : "Something went wrong while running the engine. Please try again.",
+      },
+      { status: isMissingTicker ? 404 : 500 },
     );
   }
 }

@@ -448,9 +448,9 @@ export default function WatchlistDetailPage() {
 
   return (
     <AppShell>
-      <div className="pt-6 px-8 pb-12 max-w-7xl mx-auto">
+      <div className="pt-6 px-4 md:px-8 pb-12 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-end mb-8 pb-md border-b border-outline-variant">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8 pb-md border-b border-outline-variant">
           <div>
             <span className="font-label-caps text-label-caps text-indigo-400 mb-1 block">
               WATCHLIST
@@ -469,7 +469,7 @@ export default function WatchlistDetailPage() {
                 : ""}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             <button
               onClick={() => setPickerOpen(true)}
               className="border border-outline-variant text-on-surface px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-surface-container"
@@ -542,7 +542,7 @@ export default function WatchlistDetailPage() {
             )}
 
             {/* Save-weights toolbar */}
-            <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 px-1">
               <p className="text-xs text-on-surface-variant">
                 Edit the <span className="text-on-surface font-medium">Weight %</span> column to
                 set your position sizes. Composition above updates live; click Save to persist.
@@ -550,15 +550,15 @@ export default function WatchlistDetailPage() {
               <button
                 onClick={persistWeights}
                 disabled={savingWeights}
-                className="text-xs font-label-caps bg-primary-container/30 border border-primary/40 text-primary px-3 py-1.5 rounded hover:bg-primary-container/50 disabled:opacity-50"
+                className="self-start sm:self-auto text-xs font-label-caps bg-primary-container/30 border border-primary/40 text-primary px-3 py-1.5 rounded hover:bg-primary-container/50 disabled:opacity-50"
               >
                 {savingWeights ? "Saving…" : "Save weights"}
               </button>
             </div>
 
-            {/* Main table */}
-            <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
-              <table className="w-full text-left">
+            {/* Main table — horizontally scrollable on mobile */}
+            <div className="bg-surface-container border border-outline-variant rounded-xl overflow-x-auto">
+              <table className="w-full text-left min-w-[1100px]">
                 <thead>
                   <tr className="bg-surface-container-high/50 border-b border-[#1F2937]">
                     <Th>Ticker</Th>

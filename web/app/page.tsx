@@ -230,20 +230,23 @@ export default function LandingPage() {
               price="$0"
               features={["5 stock lookups/day", "Basic models", "—"]}
               cta="GET STARTED"
+              href="/dashboard"
               highlight={false}
             />
             <PricingTeaser
               name="PROFESSIONAL"
               price="$15"
               features={["Unlimited lookups", "All models", "Real-time filing alerts", "Full math transparency"]}
-              cta="GO PRO"
+              cta="JOIN WAITLIST"
+              href="/pricing"
               highlight
             />
             <PricingTeaser
               name="INSTITUTIONAL"
               price="$30"
               features={["Pro features + API", "Custom model tuning", "Priority inference"]}
-              cta="CONTACT SALES"
+              cta="JOIN WAITLIST"
+              href="/pricing"
               highlight={false}
             />
           </div>
@@ -260,12 +263,14 @@ function PricingTeaser({
   price,
   features,
   cta,
+  href,
   highlight,
 }: {
   name: string;
   price: string;
   features: string[];
   cta: string;
+  href: string;
   highlight: boolean;
 }) {
   return (
@@ -301,15 +306,17 @@ function PricingTeaser({
           </li>
         ))}
       </ul>
-      <button
+      <Link
+        href={href}
         className={
-          highlight
-            ? "w-full py-3 bg-primary text-on-primary rounded-lg font-label-caps hover:brightness-110 transition-colors"
-            : "w-full py-3 border border-outline-variant rounded-lg font-label-caps hover:bg-surface-container transition-colors"
+          "w-full py-3 text-center rounded-lg font-label-caps transition-colors " +
+          (highlight
+            ? "bg-primary text-on-primary hover:brightness-110"
+            : "border border-outline-variant hover:bg-surface-container")
         }
       >
         {cta}
-      </button>
+      </Link>
     </div>
   );
 }

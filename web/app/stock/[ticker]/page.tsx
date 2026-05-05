@@ -128,7 +128,7 @@ export default function VerdictPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-gutter py-xl">
+      <div className="max-w-5xl mx-auto px-4 md:px-gutter py-6 md:py-xl">
         {/* Queue indicator (multi-select from picker) */}
         {queue.length > 0 && (
           <div className="mb-md flex items-center gap-3 text-xs">
@@ -298,7 +298,7 @@ function VerdictView({
         )}
 
         {/* Metadata strip */}
-        <div className="flex flex-wrap items-center gap-lg mt-md py-sm px-md bg-surface-container-low border border-outline-variant rounded">
+        <div className="flex flex-wrap items-center gap-3 md:gap-lg mt-md py-sm px-3 md:px-md bg-surface-container-low border border-outline-variant rounded">
           <div className="flex items-center gap-xs">
             <span className="material-symbols-outlined text-on-surface-variant text-[16px]">
               calendar_today
@@ -308,7 +308,7 @@ function VerdictView({
               {verdict.latestFiling?.filed ?? "—"}
             </span>
           </div>
-          <div className="flex items-center gap-xs border-l border-outline-variant pl-lg">
+          <div className="flex items-center gap-xs md:border-l md:border-outline-variant md:pl-lg">
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
               Current Price:
             </span>
@@ -318,7 +318,7 @@ function VerdictView({
                 : "—"}
             </span>
           </div>
-          <div className="flex items-center gap-xs border-l border-outline-variant pl-lg">
+          <div className="flex items-center gap-xs md:border-l md:border-outline-variant md:pl-lg">
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
               Market Cap:
             </span>
@@ -329,7 +329,7 @@ function VerdictView({
           <button
             onClick={onRefresh}
             disabled={refreshing}
-            className="ml-auto flex items-center gap-1 text-primary text-xs hover:underline disabled:opacity-50"
+            className="md:ml-auto flex items-center gap-1 text-primary text-xs hover:underline disabled:opacity-50"
           >
             <span
               className={
@@ -693,7 +693,7 @@ function PillarScorecard({
   const anyPercentiles = pillars.some((p) => p.sectorPercentile != null);
   return (
     <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
-      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant flex justify-between items-center gap-2">
+      <div className="px-3 md:px-md py-sm bg-surface-container-high border-b border-outline-variant flex justify-between items-center gap-2">
         <h3 className="font-label-caps text-label-caps">PILLAR SCORECARD</h3>
         <span className={"font-data-md text-data-md " + totalColor}>
           Total {formatContinuousScore(totalScore)}
@@ -705,7 +705,7 @@ function PillarScorecard({
           enough horizontal room for the new VS PEERS column. */}
       <div className="lg:hidden divide-y divide-outline-variant">
         {pillars.map((p) => (
-          <div key={p.pillar} className="px-md py-sm" title={pillarTooltip(p.pillar)}>
+          <div key={p.pillar} className="px-3 md:px-md py-sm" title={pillarTooltip(p.pillar)}>
             <div className="flex items-baseline justify-between mb-1">
               <span className="font-semibold">{p.pillar}</span>
               <span className={"font-data-md text-data-md " + scoreColorClass(p.score)}>
@@ -961,50 +961,52 @@ function SensitivityCard({
 }) {
   return (
     <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden">
-      <div className="px-md py-sm bg-surface-container-high border-b border-outline-variant">
+      <div className="px-3 md:px-md py-sm bg-surface-container-high border-b border-outline-variant">
         <h3 className="font-label-caps text-label-caps uppercase">
           What would change this verdict?
         </h3>
       </div>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-outline-variant bg-surface-container-low">
-            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">
-              Scenario
-            </th>
-            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">
-              Effect
-            </th>
-            <th className="p-md font-label-caps text-label-caps text-on-surface-variant">
-              New verdict
-            </th>
-          </tr>
-        </thead>
-        <tbody className="font-data-md text-data-md">
-          {items.map((s, i) => (
-            <tr key={i} className="border-b border-outline-variant last:border-b-0">
-              <td className="p-md">{s.scenario}</td>
-              <td className="p-md font-data-md text-on-surface-variant">
-                {formatContinuousScore(s.effect)}
-              </td>
-              <td className="p-md">
-                <span
-                  className={
-                    "text-[10px] px-2 py-0.5 rounded font-bold uppercase " +
-                    (s.newVerdict === "BUY"
-                      ? "verdict-buy"
-                      : s.newVerdict === "SELL"
-                        ? "verdict-sell"
-                        : "verdict-hold")
-                  }
-                >
-                  {s.newVerdict}
-                </span>
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[480px]">
+          <thead>
+            <tr className="border-b border-outline-variant bg-surface-container-low">
+              <th className="px-3 md:p-md py-sm font-label-caps text-label-caps text-on-surface-variant">
+                Scenario
+              </th>
+              <th className="px-3 md:p-md py-sm font-label-caps text-label-caps text-on-surface-variant">
+                Effect
+              </th>
+              <th className="px-3 md:p-md py-sm font-label-caps text-label-caps text-on-surface-variant">
+                New verdict
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="font-data-md text-data-md">
+            {items.map((s, i) => (
+              <tr key={i} className="border-b border-outline-variant last:border-b-0">
+                <td className="px-3 md:p-md py-sm">{s.scenario}</td>
+                <td className="px-3 md:p-md py-sm font-data-md text-on-surface-variant">
+                  {formatContinuousScore(s.effect)}
+                </td>
+                <td className="px-3 md:p-md py-sm">
+                  <span
+                    className={
+                      "text-[10px] px-2 py-0.5 rounded font-bold uppercase " +
+                      (s.newVerdict === "BUY"
+                        ? "verdict-buy"
+                        : s.newVerdict === "SELL"
+                          ? "verdict-sell"
+                          : "verdict-hold")
+                    }
+                  >
+                    {s.newVerdict}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
