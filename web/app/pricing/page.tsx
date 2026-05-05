@@ -1,88 +1,140 @@
 "use client";
 
-// Pricing page — adapted from Stitch screen (5) HTML.
-// Pure marketing surface. Free tier links to /dashboard for sign-in.
-// Paid tiers (Pro / Premium) open the waitlist dialog while payments
-// are not yet wired.
+// Pricing page — honest two-tier layout (Free + Pro) with an explicit
+// "Coming soon" roadmap. Free tier lists everything actually built and
+// open today; Pro tier lists only what's truly tier-gated. Aspirational
+// features go under Roadmap, never inside a tier card.
 
 import Link from "next/link";
 import { useState } from "react";
 import { PublicFooter } from "@/components/public-footer";
 import { WaitlistDialog } from "@/components/waitlist-dialog";
 
-type PlanKey = "free" | "pro" | "premium";
+// ---- Plans -----------------------------------------------------------
+// These reflect ACTUAL gated state of the codebase as of this commit.
+// Free = anything not behind a `tier === "pro"` check anywhere in the app.
+// Pro  = the two features that are truly Pro-gated server + client side.
+// ---------------------------------------------------------------------
 
-const PLANS: Array<{
-  key: PlanKey;
+interface Plan {
+  key: "free" | "pro";
   name: string;
   price: string;
+  priceNote: string;
   cta: string;
   highlight: boolean;
-  features: { label: string; included: boolean }[];
-}> = [
+  description: string;
+  features: string[];
+}
+
+const PLANS: Plan[] = [
   {
     key: "free",
-    name: "EXPLORER",
+    name: "FREE",
     price: "$0",
+    priceNote: "/forever during beta",
     cta: "Get started",
     highlight: false,
+    description: "Everything you need to run the engine on any US-listed stock.",
     features: [
-      { label: "5 stock lookups / day", included: true },
-      { label: "Revenue + EPS trend model", included: true },
-      { label: "Graham Number model", included: true },
-      { label: "Piotroski-Lite F-Score", included: true },
-      { label: "Watchlists", included: false },
-      { label: "Verdict caching", included: false },
-      { label: "Daily auto-rerun", included: false },
-      { label: "API access", included: false },
+      "Unlimited stock lookups",
+      "All 9 fundamental models across 4 pillars",
+      "Sector-relative percentile rankings",
+      "Source filing links — every score traces to a 10-K",
+      "Catalysts, risks, sensitivity analysis",
+      "News headlines (Google News)",
+      "Watchlists with cost-basis P&L",
+      "Dividend income forecast",
+      "Compare tool (2–4 tickers side-by-side)",
+      "Public methodology, fully audited",
     ],
   },
   {
     key: "pro",
-    name: "PROFESSIONAL",
+    name: "PRO",
     price: "$15",
+    priceNote: "/mo (when launched)",
     cta: "Join Pro waitlist",
     highlight: true,
+    description: "Adds research scale and an AI assistant grounded in your portfolio.",
     features: [
-      { label: "Unlimited stock lookups", included: true },
-      { label: "All 9 fundamental models", included: true },
-      { label: "Verdict caching (24h)", included: true },
-      { label: "Custom scoring weights", included: true },
-      { label: "5 watchlists", included: true },
-      { label: "Weekly auto-rerun + email alerts", included: true },
-      { label: "Downloadable PDF reports", included: true },
-      { label: "API access", included: false },
-    ],
-  },
-  {
-    key: "premium",
-    name: "INSTITUTIONAL",
-    price: "$30",
-    cta: "Join Premium waitlist",
-    highlight: false,
-    features: [
-      { label: "Pro features +", included: true },
-      { label: "Daily auto-rerun across all watchlists", included: true },
-      { label: "API access (60 req/min)", included: true },
-      { label: "Priority support", included: true },
-      { label: "Multi-market when available", included: true },
-      { label: "Custom model tuning", included: true },
-      { label: "Real-time prices", included: true },
-      { label: "Dedicated success manager", included: true },
+      "Everything in Free, plus:",
+      "SEC Universe — 358-stock filterable table (sector, cap, sortable, CSV export)",
+      "AI chat assistant grounded in your actual portfolio data",
+      "Founding-member pricing locked for life",
+      "Early access to Roadmap features as they ship",
     ],
   },
 ];
 
+// Honest roadmap — each item links to what would unlock it in product terms
+// once paid plans are live. Not promised, not dated.
+const ROADMAP = [
+  {
+    icon: "schedule",
+    title: "Email alerts on verdict flips",
+    body: "When a stock you watch flips BUY → HOLD → SELL after a new filing, you'll know.",
+  },
+  {
+    icon: "picture_as_pdf",
+    title: "PDF report export",
+    body: "Download the verdict screen as an audit-ready PDF for your research files.",
+  },
+  {
+    icon: "tune",
+    title: "Custom pillar weights",
+    body: "Backend already accepts custom weights — we'll add a UI so you can express your style (e.g., dial Quality up, Valuation down).",
+  },
+  {
+    icon: "account_balance",
+    title: "Sector-aware models",
+    body: "Banks, REITs, and utilities don't fit Piotroski + ROIC + D/E. Sector-specific scoring on the way.",
+  },
+  {
+    icon: "show_chart",
+    title: "Backtest dashboard",
+    body: "Published 5-year hit rate per pillar and per verdict bucket. Honest numbers, even if mediocre.",
+  },
+  {
+    icon: "monitoring",
+    title: "Income calendar",
+    body: "Per-month dividend payment forecast across your watchlist + safety scoring per position.",
+  },
+];
+
 export default function PricingPage() {
-  const [waitlistPlan, setWaitlistPlan] = useState<"pro" | "premium" | null>(null);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 h-14 bg-[#0A0E14]/80 backdrop-blur-md border-b border-[#1F2937] z-50 px-gutter flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-sm">
+      {/* Top nav — desktop full nav, mobile single CTA */}
+      <nav className="fixed top-0 left-0 right-0 h-14 bg-[#0A0E14]/80 backdrop-blur-md border-b border-[#1F2937] z-50 px-4 md:px-gutter flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
           <span className="material-symbols-outlined text-primary">memory</span>
-          <span className="text-base font-black text-slate-50 tracking-tight">INVESTING AI</span>
+          <span className="text-sm md:text-base font-black text-slate-50 tracking-tight">
+            INVESTING AI
+          </span>
         </Link>
+
+        {/* Mobile-only: methodology icon + Try free */}
+        <div className="flex md:hidden items-center gap-3">
+          <Link
+            href="/methodology"
+            className="material-symbols-outlined text-slate-400 hover:text-primary"
+            aria-label="Methodology"
+            title="Methodology"
+          >
+            menu_book
+          </Link>
+          <Link
+            href="/dashboard"
+            className="bg-primary text-on-primary px-3 py-1.5 font-sans text-[11px] uppercase tracking-widest font-bold rounded-sm active:scale-95 transition-transform"
+          >
+            Try free
+          </Link>
+        </div>
+
+        {/* Desktop / tablet (md+): full nav */}
         <div className="hidden md:flex items-center gap-lg">
           <Link
             href="/pricing"
@@ -111,24 +163,30 @@ export default function PricingPage() {
         </div>
       </nav>
 
-      <main className="pt-32 pb-24 px-gutter container mx-auto">
-        <div className="text-center mb-xl">
-          <h1 className="text-display-lg font-display-lg text-on-surface mb-4">Pricing</h1>
-          <p className="font-body-md text-on-surface-variant max-w-xl mx-auto">
-            Pay only when the math helps you. Cancel any time. Each tier ships with the full
-            audit trail — the math is never paywalled.
+      <main className="pt-24 md:pt-32 pb-16 md:pb-24 px-4 md:px-gutter container mx-auto">
+        {/* Hero */}
+        <div className="text-center mb-10 md:mb-xl">
+          <h1 className="text-3xl md:text-display-lg font-display-lg text-on-surface mb-3 md:mb-4">
+            Free during public beta
+          </h1>
+          <p className="text-sm md:text-base font-body-md text-on-surface-variant max-w-xl mx-auto px-2 leading-relaxed">
+            The full engine — every model, every traceable score, watchlists, dividend
+            forecast — is free today. Pro adds Universe + AI assistant when paid plans
+            launch. Founding-member pricing for everyone on the waitlist.
           </p>
-          {/* Beta banner — paid plans not live yet */}
-          <div className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-primary/10 border border-primary/30 rounded-full text-xs text-on-surface">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+
+          {/* Beta banner */}
+          <div className="inline-flex items-start sm:items-center gap-2 mt-5 md:mt-6 px-3 md:px-4 py-2 bg-primary/10 border border-primary/30 rounded-full text-[11px] md:text-xs text-on-surface text-left max-w-xl">
+            <span className="w-1.5 h-1.5 mt-1 sm:mt-0 rounded-full bg-primary animate-pulse flex-shrink-0" />
             <span>
-              <strong className="text-primary">Public beta</strong> — paid plans launching soon.
-              Free tier is open today; join the waitlist for founding-member pricing.
+              <strong className="text-primary">Public beta</strong> — paid plans not live
+              yet. Free tier is fully open. Roadmap below shows what Pro will unlock.
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-lg max-w-6xl mx-auto">
+        {/* Plan cards — 2 tiers, stack on mobile + tablet */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-lg max-w-md md:max-w-2xl lg:max-w-5xl mx-auto">
           {PLANS.map((p) => {
             const ctaInner = (
               <span
@@ -145,17 +203,17 @@ export default function PricingPage() {
 
             return (
               <div
-                key={p.name}
+                key={p.key}
                 className={
-                  "p-lg rounded-xl flex flex-col relative " +
+                  "p-6 md:p-lg rounded-xl flex flex-col relative " +
                   (p.highlight
-                    ? "bg-surface-container border-2 border-primary scale-105 shadow-2xl"
+                    ? "bg-surface-container border-2 border-primary lg:scale-[1.02] shadow-2xl"
                     : "bg-surface-container-low border border-outline-variant")
                 }
               >
                 {p.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-3 py-1 rounded-full font-label-caps text-[10px]">
-                    MOST POPULAR
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-3 py-1 rounded-full font-label-caps text-[10px] whitespace-nowrap">
+                    COMING SOON
                   </div>
                 )}
                 <span
@@ -166,32 +224,28 @@ export default function PricingPage() {
                 >
                   {p.name}
                 </span>
-                <div className="font-display-lg text-display-lg mb-md">
-                  {p.price}{" "}
-                  <span className="text-xs font-body-sm text-on-surface-variant">/mo</span>
+                <div className="mb-2">
+                  <span className="font-display-lg text-display-lg">{p.price}</span>{" "}
+                  <span className="text-xs font-body-sm text-on-surface-variant">
+                    {p.priceNote}
+                  </span>
                 </div>
-                <ul className="space-y-sm mb-xl flex-grow">
+                <p className="text-sm text-on-surface-variant mb-6">{p.description}</p>
+                <ul className="space-y-2.5 mb-8 flex-grow">
                   {p.features.map((f, i) => (
                     <li
                       key={i}
                       className={
-                        "flex items-center gap-2 text-sm " +
-                        (f.included
-                          ? p.highlight
-                            ? "text-on-surface font-medium"
-                            : "text-on-surface-variant"
-                          : "text-on-surface-variant opacity-50")
+                        "flex items-start gap-2 text-sm " +
+                        (p.highlight
+                          ? "text-on-surface font-medium"
+                          : "text-on-surface-variant")
                       }
                     >
-                      <span
-                        className={
-                          "material-symbols-outlined text-[16px] " +
-                          (f.included ? "text-secondary" : "text-on-surface-variant")
-                        }
-                      >
-                        {f.included ? "check_circle" : "cancel"}
+                      <span className="material-symbols-outlined text-[16px] mt-0.5 flex-shrink-0 text-secondary">
+                        check_circle
                       </span>
-                      {f.label}
+                      <span className="leading-snug">{f}</span>
                     </li>
                   ))}
                 </ul>
@@ -201,7 +255,7 @@ export default function PricingPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setWaitlistPlan(p.key as "pro" | "premium")}
+                    onClick={() => setWaitlistOpen(true)}
                     className="w-full"
                   >
                     {ctaInner}
@@ -212,18 +266,45 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Comparison heading */}
-        <div className="mt-xl text-center max-w-3xl mx-auto">
-          <h2 className="text-h2 font-h2 text-on-surface mb-2">Engine Capability Comparison</h2>
-          <p className="text-body-sm text-on-surface-variant">
-            All tiers ship with the same source of truth — every number traced to its 10-K
-            accession number on SEC EDGAR. Higher tiers add scale, automation, and access.
-          </p>
-        </div>
+        {/* Roadmap — honest about what's not built */}
+        <section className="mt-16 md:mt-24 max-w-5xl mx-auto">
+          <div className="text-center mb-8 md:mb-10 max-w-3xl mx-auto px-2">
+            <span className="font-label-caps text-on-surface-variant uppercase tracking-[0.15em] text-[10px] md:text-xs mb-2 block">
+              Roadmap
+            </span>
+            <h2 className="text-2xl md:text-h2 font-h2 text-on-surface mb-2">
+              What Pro will unlock
+            </h2>
+            <p className="text-sm md:text-body-sm text-on-surface-variant leading-relaxed">
+              Honest list of what isn&apos;t built yet. No specific dates — paid plans launch
+              when these are real, not before. Waitlist members get early access as each
+              one ships.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            {ROADMAP.map((r) => (
+              <div
+                key={r.title}
+                className="p-5 md:p-6 bg-surface-container-low border border-outline-variant rounded-xl flex gap-4"
+              >
+                <span className="material-symbols-outlined text-primary text-[24px] flex-shrink-0 mt-0.5">
+                  {r.icon}
+                </span>
+                <div>
+                  <h3 className="font-h2 text-base text-on-surface mb-1">{r.title}</h3>
+                  <p className="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+                    {r.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* Trust strip */}
-        <div className="mt-xl pt-xl border-t border-outline-variant text-center">
-          <p className="font-label-caps text-on-surface-variant text-xs">
+        <div className="mt-16 md:mt-xl pt-10 md:pt-xl border-t border-outline-variant text-center max-w-3xl mx-auto px-2">
+          <p className="font-label-caps text-on-surface-variant text-[11px] md:text-xs leading-relaxed">
             Filings sourced directly from{" "}
             <a
               href="https://www.sec.gov/edgar"
@@ -232,18 +313,18 @@ export default function PricingPage() {
               rel="noopener noreferrer"
             >
               SEC EDGAR
-            </a>
-            {" "}— free, public, audit-ready. Not investment advice.
+            </a>{" "}
+            — free, public, audit-ready. Not investment advice.
           </p>
         </div>
       </main>
       <PublicFooter />
 
       <WaitlistDialog
-        open={waitlistPlan !== null}
-        plan={waitlistPlan}
+        open={waitlistOpen}
+        plan="pro"
         source="pricing"
-        onClose={() => setWaitlistPlan(null)}
+        onClose={() => setWaitlistOpen(false)}
       />
     </>
   );
