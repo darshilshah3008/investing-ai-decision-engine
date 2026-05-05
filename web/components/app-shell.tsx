@@ -148,9 +148,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="hidden sm:inline font-sans text-xs uppercase tracking-widest font-bold text-slate-400">
             Market Open
           </span>
+          <a
+            href="mailto:darshilshah3008@gmail.com?subject=Decision%20Engine%20feedback"
+            className="material-symbols-outlined text-slate-400 hover:text-indigo-400 transition-colors focus:ring-1 focus:ring-indigo-500 outline-none"
+            title="Send feedback"
+            aria-label="Send feedback"
+          >
+            forum
+          </a>
           <Link
             href="/dashboard"
             className="material-symbols-outlined text-slate-400 hover:text-indigo-400 transition-colors focus:ring-1 focus:ring-indigo-500 outline-none"
+            title="Search"
+            aria-label="Search"
           >
             search
           </Link>

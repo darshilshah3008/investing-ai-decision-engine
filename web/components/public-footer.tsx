@@ -36,12 +36,22 @@ export function PublicFooter() {
               <Link href="/pricing" className="text-on-surface-variant hover:text-primary transition-colors">
                 Pricing
               </Link>
+              <Link href="/compare" className="text-on-surface-variant hover:text-primary transition-colors">
+                Compare
+              </Link>
             </div>
             <div className="flex flex-col gap-2">
               <p className="font-label-caps text-on-surface mb-1">RESOURCES</p>
               <Link href="/methodology" className="text-on-surface-variant hover:text-primary transition-colors">
                 Methodology
               </Link>
+              <a
+                href="mailto:darshilshah3008@gmail.com?subject=Decision%20Engine%20feedback"
+                className="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1"
+              >
+                Feedback
+                <span className="material-symbols-outlined text-[12px]">forum</span>
+              </a>
               <a
                 href="https://www.sec.gov/edgar"
                 target="_blank"
